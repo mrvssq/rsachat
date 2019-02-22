@@ -203,7 +203,6 @@ class MainWindowSlots(Ui_Form):
             random_generator = Random.new().read
         else:
             random_generator = Random.new().read
-            #random_generator = bytes(self.textEdit_2.toPlainText(), 'utf-8')
         privateKey = RSA.generate(bit, random_generator)
         publicKey = privateKey.publickey()
 
@@ -211,7 +210,7 @@ class MainWindowSlots(Ui_Form):
         self.keys_me['privateKey'] = privateKey.exportKey()
 
         self.textEdit_4.setText(str(publicKey.exportKey().decode('utf-8')))
-        self.textEdit_5.setText(str(privateKey.exportKey().decode('utf-8')))
+        #self.textEdit_5.setText(str(privateKey.exportKey().decode('utf-8')))
         return None
 
     def button_send_msg(self):
