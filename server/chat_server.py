@@ -11,16 +11,26 @@ server.bind(('', 8000))
 server.listen(100)
 
 list_clients = {}
-newrooms = {'Room1': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-            'Room2': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-            'Room3': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-            'Room4': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-            'Room5': {'id': [], 'admin': 0, 'publicKeyROOM': 'key', 'requests': []}}
+roms = {'Room1': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
+        'Room2': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
+        'Room3': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
+        'Room4': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
+        'Room5': {'id': [], 'admin': 0, 'publicKeyROOM': 'key', 'requests': []}}
 
-class MainBegin():
-    def __init__(self, conn_sock):
-        self.conn_sock = conn_sock
-        self.id = self.gen_id()
+
+def gen_id():
+    len_id_from = 100000000
+    len_id_before = 999999999
+    iditem = random.randint(len_id_from, len_id_before)
+    while iditem in list_clients.keys():
+        iditem = random.randint(len_id_from, len_id_before)
+    return iditem
+
+
+class MainBegin:
+    def __init__(self, connSock):
+        self.conn_sock = connSock
+        self.id = gen_id()
         try:
             message_json = self.conn_sock.recv(2048)
             message = json.loads(message_json.decode('utf-8'))
@@ -33,14 +43,14 @@ class MainBegin():
                     nickname = self.random_nickname()
                 list_clients[self.id] = {'socket': self.conn_sock, 'room': None, 'Public_Key': publicKeyClient,
                                          'nickname': nickname}
-                [rooms.append(x) for x in newrooms.keys()]
+                [rooms.append(x) for x in roms.keys()]
                 first_request = {'command': '-sFirstRequest',
-                                'error': check_valid_nickname,
-                                'nickname' : nickname,
-                                'id': str(self.id),
-                                'rooms': rooms,
-                                'PublicKeyServer': str(gpublic),
-                                'welcome': 'Welcome to this chat! Your id: ' + str(self.id)}
+                                 'error': check_valid_nickname,
+                                 'nickname': nickname,
+                                 'id': str(self.id),
+                                 'rooms': rooms,
+                                 'PublicKeyServer': str(gpublic),
+                                 'welcome': 'Welcome to this chat! Your id: ' + str(self.id)}
 
                 send_one_client(first_request, self.id)
                 list_clients[self.id]['Thread'] = WorkThreadClients(self.id, list_clients[self.id]['socket'])
@@ -51,12 +61,13 @@ class MainBegin():
             print('error first_start:' + str(error))
             remove_con(self.id)
 
-    def check_valid_nickname(self, nickname):
+    @staticmethod
+    def check_valid_nickname(nickname):
         forbidden_nicknames = ['', ' ', 'system']
         valid_symbol = ' 1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm!@#$%^&*()_+=-?/.,"][{}'
         check = '0'
-        for id in list_clients.keys():
-            if nickname == list_clients[id]['nickname']:
+        for id_client in list_clients.keys():
+            if nickname == list_clients[id_client]['nickname']:
                 check = 'error Nickname (With that Nickname already exists)'
         if nickname in forbidden_nicknames:
             check = 'error Nickname (Forbidden Nickname)'
@@ -69,29 +80,24 @@ class MainBegin():
             check = 'error Nickname (Length Nickname is too short)'
         return check
 
-    def random_nickname(self):
+    @staticmethod
+    def random_nickname():
         nickname = 'nick' + str(random.randint(10000, 99999))
         nicknames = []
-        for id in list_clients.keys():
-            nicknames.append(list_clients[id]['nickname'])
+        for id_client in list_clients.keys():
+            nicknames.append(list_clients[id_client]['nickname'])
         while nickname in nicknames:
             nickname = 'nick' + str(random.randint(10000, 99999))
         return nickname
 
-    def gen_id(self):
-        len_id_from = 100000000
-        len_id_before = 999999999
-        iditem = random.randint(len_id_from, len_id_before)
-        while iditem in list_clients.keys():
-            iditem = random.randint(len_id_from, len_id_before)
-        return iditem
 
 class WorkThreadClients(Thread):
-    def __init__(self, id, conn):
+    def __init__(self, id_client, conn):
         Thread.__init__(self)
-        self.id = id
+        self.id = id_client
         self.conn = conn
         self.private_key = RSA.importKey(gprivat)
+
     def run(self):
         while self.id in list_clients.keys():
             try:
@@ -117,8 +123,9 @@ class WorkThreadClients(Thread):
             command_right = json.loads(command_with_json.decode('utf-8'))
             return command_right
 
-def cryptoRSA(message_json, id):
-    key_bytes = bytes(list_clients[id]['Public_Key'], "utf8")
+
+def cryptoRSA(message_json, id_client):
+    key_bytes = bytes(list_clients[id_client]['Public_Key'], "utf8")
     key = RSA.importKey(key_bytes)
     send_msg = b'{begin{--[SPLIT]--'
     if len(message_json) > 250:
@@ -133,140 +140,149 @@ def cryptoRSA(message_json, id):
     send_msg += message_send[0] + b'--[SPLIT]--}end}'
     return send_msg
 
-def send_one_client(message, id):
+
+def send_one_client(message, id_client):
     try:
         message_json = json.dumps(message)
-        send_msg = cryptoRSA(message_json, id)
+        send_msg = cryptoRSA(message_json, id_client)
 
         if len(send_msg) <= 4096:
-            list_clients[id]['socket'].send(send_msg)
+            list_clients[id_client]['socket'].send(send_msg)
         else:
             print('len command have big size')
     except Exception as error:
         print('except error send one client:' + str(error))
-        remove_con(id)
+        remove_con(id_client)
 
-def broadcast(message, id, name_room=None):
-    if name_room == None:
-        for iditem in list_clients.keys():
-            if list_clients[iditem]['room'] == None:
-                if iditem != id:
-                    send_one_client(message, iditem)
+
+def broadcast(message, id_client, name_room=None):
+    if name_room is None:
+        for idItem in list_clients.keys():
+            if list_clients[idItem]['room'] is None:
+                if idItem != id_client:
+                    send_one_client(message, idItem)
     else:
-        for iditem in newrooms[name_room]['id']:
-            if iditem != id:
-                send_one_client(message, iditem)
+        for idItem in roms[name_room]['id']:
+            if idItem != id_client:
+                send_one_client(message, idItem)
     return None
 
-def remove_con(id, name_room = None):
+
+def remove_con(id_client, name_room=None):
     try:
-        if name_room == None:
-            list_clients[id]['socket'].close()
-            del list_clients[id]
+        if name_room is None:
+            list_clients[id_client]['socket'].close()
+            del list_clients[id_client]
         else:
 
-            if id in newrooms[name_room]['id']:
-                newrooms[name_room]['id'].remove(id)
-            list_clients[id]['socket'].close()
-            del list_clients[id]
+            if id_client in roms[name_room]['id']:
+                roms[name_room]['id'].remove(id_client)
+            list_clients[id_client]['socket'].close()
+            del list_clients[id_client]
 
-            if newrooms[name_room]['id'] == []:
-                del newrooms[name_room]
+            if not roms[name_room]['id']:
+                del roms[name_room]
                 refresh_rooms()
             else:
-                if newrooms[name_room]['admin'] == id:
-                    delegation_of_authority(name_room, id)
+                if roms[name_room]['admin'] == id_client:
+                    delegation_of_authority(name_room, id_client)
                 refresh_clients(name_room)
     except:
-        print('error remove client id: ' + str(id))
+        print('error remove client id: ' + str(id_client))
     return None
 
-def comands_client(data, id, name_room):
+
+def comands_client(data, id_client, name_room):
     if data['command'] == '-sMsg':
-        print(str(name_room) + '/' + str(id) + ': ' + data['message'])
-        treatment_message(data, id, name_room)
+        print(str(name_room) + '/' + str(id_client) + ': ' + data['message'])
+        treatment_message(data, id_client, name_room)
     elif data['command'] == '-sOnline':
-        print(str(id) + ': -sOnline')
-        refresh_clients(name_room, id)
+        print(str(id_client) + ': -sOnline')
+        refresh_clients(name_room, id_client)
     elif data['command'] == '-sRooms':
-        print(str(id) + ': -sRooms')
-        refresh_rooms(id)
+        print(str(id_client) + ': -sRooms')
+        refresh_rooms(id_client)
     elif data['command'] == '-sGo':
-        print(str(id) + ': -sGo')
-        request_generation(data, id)
+        print(str(id_client) + ': -sGo')
+        request_generation(data, id_client)
     elif data['command'] == '-sResolutionAdmin':
-        print(str(id) + ': -sResolutionAdmin')
+        print(str(id_client) + ': -sResolutionAdmin')
         resolution_admin(data, name_room)
     elif data['command'] == '-sExitRoom':
-        print(str(id) + ': -sExit room ' + name_room + ' client: ' + str(id))
-        exit_room(id, name_room)
+        print(str(id_client) + ': -sExit room ' + name_room + ' client: ' + str(id_client))
+        exit_room(id_client, name_room)
     elif data['command'] == '-sNewRoom':
-        print(str(id) + ': -sNewRoom')
-        create_new_room(data, id)
+        print(str(id_client) + ': -sNewRoom')
+        create_new_room(data, id_client)
     elif data['command'] == '-sKickUser':
-        print(str(id) + ': -sKickUser' + data['kick_id'])
-        kick_user_from_room(data, id)
+        print(str(id_client) + ': -sKickUser' + data['kick_id'])
+        kick_user_from_room(data, id_client)
     else:
-        print(str(id) + ': error command!:(' + data + ')')
+        print(str(id_client) + ': error command!:(' + data + ')')
 
-def treatment_message(data, id, name_room):
+
+def treatment_message(data, id_client, name_room):
     message = data['message']
-    nick = list_clients[id]['nickname']
-    send_data = {'command': '-sMsg', 'message': message, 'id': str(id), 'nickname': nick}
-    broadcast(send_data, id, name_room)
+    nick = list_clients[id_client]['nickname']
+    send_data = {'command': '-sMsg', 'message': message, 'id': str(id_client), 'nickname': nick}
+    broadcast(send_data, id_client, name_room)
 
-def refresh_clients(name_room, id=0):
-    users = newrooms[name_room]['id']
+
+def refresh_clients(name_room, id_client=0):
+    users = roms[name_room]['id']
     send_data = {'command': '-sOnline', 'users': users}
-    if id == 0:
+    if id_client == 0:
         broadcast(send_data, 0, name_room)
     else:
-        send_one_client(send_data, id)
+        send_one_client(send_data, id_client)
 
-def refresh_rooms(id=0):
+
+def refresh_rooms(id_client=0):
     rooms = []
-    [rooms.append(x) for x in newrooms.keys()]
+    [rooms.append(x) for x in roms.keys()]
     send_data = {'command': '-sRooms', 'rooms': rooms}
-    if id == 0:
+    if id_client == 0:
         broadcast(send_data, 0)
     else:
-        send_one_client(send_data, id)
+        send_one_client(send_data, id_client)
 
-def request_generation(data, id):
+
+def request_generation(data, id_client):
     name_room = data['name_room']
-    AdminRoom = newrooms[name_room]['admin']
+    AdminRoom = roms[name_room]['admin']
     public_key = data['publicKey']
     try:
-        if name_room in newrooms.keys():
-            for room in newrooms.keys():
-                if id in newrooms[room]['requests']:
-                    newrooms[room]['requests'].remove(id)
-                    request = newrooms[room]['requests']
-                    admin = newrooms[room]['admin']
+        if name_room in roms.keys():
+            for room in roms.keys():
+                if id_client in roms[room]['requests']:
+                    roms[room]['requests'].remove(id_client)
+                    request = roms[room]['requests']
+                    admin = roms[room]['admin']
                     send_data_mini = {'command': '-sRefreshRequests', 'requests': request}
                     send_one_client(send_data_mini, admin)
 
-            print('--begin_go_in_room-- id: ' + str(id))
-            newrooms[name_room]['requests'].append(id)
-            ids_request = newrooms[name_room]['requests']
-            send_data = {'command': '-sResolutionAdmin', 'id': str(id),
+            print('--begin_go_in_room-- id: ' + str(id_client))
+            roms[name_room]['requests'].append(id_client)
+            ids_request = roms[name_room]['requests']
+            send_data = {'command': '-sResolutionAdmin', 'id': str(id_client),
                          'requests': ids_request, 'publicKey': str(public_key)}
             send_one_client(send_data, AdminRoom)
         else:
             error = {'command': '-sError', 'error': 'error Room does not exist'}
-            send_one_client(error, id)
+            send_one_client(error, id_client)
             print('-sGoRoom error: error Room does not exist')
     except:
-        print('error go to room for id: ' + str(id) + ', in room: ' + name_room)
-        remove_con(id, list_clients[id]['room'])
+        print('error go to room for id: ' + str(id_client) + ', in room: ' + name_room)
+        remove_con(id_client, list_clients[id_client]['room'])
+
 
 def resolution_admin(data, name_room):
     if data['response'] == 1:
         id_client = int(data['id'])
         CryptPrivatKeyRoom = data['cryptPrivatkey']
         if id_client in list_clients.keys():
-            newrooms[name_room]['requests'].remove(id_client)
-            newrooms[name_room]['id'].append(id_client)
+            roms[name_room]['requests'].remove(id_client)
+            roms[name_room]['id'].append(id_client)
             list_clients[id_client]['room'] = name_room
             send_data = {'command': '-sInvitationRoom', 'name_room': name_room, 'error': 0,
                          'CryptPrivatKeyRoom': CryptPrivatKeyRoom, 'welcome': 'Welcome to the room'}
@@ -278,29 +294,31 @@ def resolution_admin(data, name_room):
     else:
         print('error! Admin tell "NO"!')
 
-def create_new_room(data, id):
+
+def create_new_room(data, id_client):
     name_room = data['name_room']
     valid_name = check_valid_name_room(name_room)
-    if list_clients[id]['room'] == None:
+    if list_clients[id_client]['room'] is None:
         if valid_name == 'ok':
-            newrooms[name_room] = {'id': [id], 'admin': id, 'requests': []}
-            list_clients[id]['room'] = name_room
+            roms[name_room] = {'id': [id_client], 'admin': id_client, 'requests': []}
+            list_clients[id_client]['room'] = name_room
             send_data = {'command': '-sNewRoom', 'error': '0', 'name_room': name_room}
-            send_one_client(send_data, id)
+            send_one_client(send_data, id_client)
             refresh_rooms()
             refresh_clients(name_room)
-            print(str(id) + ' create new room: ' + str(name_room))
+            print(str(id_client) + ' create new room: ' + str(name_room))
         else:
-            error_create_new_room(valid_name, id)
+            error_create_new_room(valid_name, id_client)
     else:
-        error = 'error you already make jokes in the room: ' + str(list_clients[id]['room'])
-        error_create_new_room(error, id)
+        error = 'error you already make jokes in the room: ' + str(list_clients[id_client]['room'])
+        error_create_new_room(error, id_client)
+
 
 def check_valid_name_room(name_room):
     forbidden_name = ['', 'system', 'root', '-', ' ']
     valid_symbol = ' 1234567890QWERTYUIOPASDFGHJKLZXCVBNMqwertyuiopasdfghjklzxcvbnm!@#$%^&*()_+=-?/.,"][{}'
     check = 'ok'
-    if name_room in newrooms.keys():
+    if name_room in roms.keys():
         check = 'error Room with that name already exists'
     if name_room in forbidden_name:
         check = 'error name Room (forbidden name room)'
@@ -313,54 +331,58 @@ def check_valid_name_room(name_room):
         check = 'error name Room (Name is too short)'
     return check
 
-def error_create_new_room(error, id):
+
+def error_create_new_room(error, id_client):
     print(error)
     command = {'command': '-sNewRoom', 'error': error}
-    send_one_client(command, id)
+    send_one_client(command, id_client)
 
-def exit_room(id, name_room):
-    if list_clients[id]['room'] == name_room:
-        if id in newrooms[name_room]['id']:
-            list_clients[id]['room'] = None
-            newrooms[name_room]['id'].remove(id)
-            clean_room(name_room, id)
+
+def exit_room(id_client, name_room):
+    if list_clients[id_client]['room'] == name_room:
+        if id_client in roms[name_room]['id']:
+            list_clients[id_client]['room'] = None
+            roms[name_room]['id'].remove(id_client)
+            clean_room(name_room, id_client)
             send_data = {'command': '-sExitRoom', 'indicator': 'exit', 'name': name_room}
-            send_one_client(send_data, id)
+            send_one_client(send_data, id_client)
         else:
-            print('-sExitRoom error client ' + str(id) + ' not found')
+            print('-sExitRoom error client ' + str(id_client) + ' not found')
 
-def clean_room(name_room, id):
-    if newrooms[name_room]['id'] == []:
-        del newrooms[name_room]
+
+def clean_room(name_room, id_client):
+    if not roms[name_room]['id']:
+        del roms[name_room]
         refresh_rooms()
     else:
-        if newrooms[name_room]['admin'] == id:
-            delegation_of_authority(name_room, id)
+        if roms[name_room]['admin'] == id_client:
+            delegation_of_authority(name_room, id_client)
         refresh_clients(name_room)
-        refresh_rooms(id)
+        refresh_rooms(id_client)
 
 
-def delegation_of_authority(name_room, id):
+def delegation_of_authority(name_room, id_client):
     try:
-        if id in newrooms[name_room]['id']:
-            newrooms[name_room]['id'].remove(id)
-        lenght = len(newrooms[name_room]['id']) - 1
-        randomid = random.randint(0, lenght)
-        new_admin = newrooms[name_room]['id'][randomid]
+        if id_client in roms[name_room]['id']:
+            roms[name_room]['id'].remove(id_client)
+        length = len(roms[name_room]['id']) - 1
+        random_id = random.randint(0, length)
+        new_admin = roms[name_room]['id'][random_id]
         print('in room: ' + name_room + ', new admin: ' + str(new_admin))
-        newrooms[name_room]['admin'] = new_admin
+        roms[name_room]['admin'] = new_admin
     except:
         print('error in delegation_of_authority')
 
-def kick_user_from_room(data, id):
-    name_room = list_clients[id]['room']
-    id_kick = int(data['kick_id'])
-    if (newrooms[name_room]['admin'] == id) and (id_kick != id):
 
-        if id_kick in newrooms[name_room]['requests']:
-            newrooms[name_room]['requests'].remove(id_kick)
-        if id_kick in newrooms[name_room]['id']:
-            newrooms[name_room]['id'].remove(id_kick)
+def kick_user_from_room(data, id_client):
+    name_room = list_clients[id_client]['room']
+    id_kick = int(data['kick_id'])
+    if (roms[name_room]['admin'] == id_client) and (id_kick != id_client):
+
+        if id_kick in roms[name_room]['requests']:
+            roms[name_room]['requests'].remove(id_kick)
+        if id_kick in roms[name_room]['id']:
+            roms[name_room]['id'].remove(id_kick)
             list_clients[id_kick]['room'] = None
 
             send_data = {'command': '-sExitRoom', 'indicator': 'kick', 'name': name_room}
@@ -368,6 +390,7 @@ def kick_user_from_room(data, id):
 
             refresh_clients(name_room)
             refresh_rooms(id_kick)
+
 
 if __name__ == '__main__':
     random_generator = Random.new().read

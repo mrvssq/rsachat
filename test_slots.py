@@ -1,7 +1,6 @@
 from test_ui import Ui_Form
 from PyQt5.QtCore import pyqtSignal, QThread
 from Crypto.PublicKey import RSA
-from Crypto.Hash import SHA
 from Crypto import Random
 from Crypto.Cipher import AES
 from tkinter import *
@@ -22,6 +21,7 @@ class WorkThread(QThread):
         self.server = server
         key_bytes = bytes(key, "utf8")
         self.key = RSA.importKey(key_bytes)
+
     def run(self):
         while True:
             try:
@@ -30,7 +30,7 @@ class WorkThread(QThread):
                     commands = message_json[7:-5].split(b'}end}{begin{')
                     for command in commands:
                         command_right = self.command_handler(command)
-                        if command_right != None:
+                        if command_right is not None:
                             self.reply_server.emit(command_right)
                 else:
                     error = 'Error Disconnect server'
@@ -59,6 +59,7 @@ class WorkThread(QThread):
             error_send = {'command': '-sError', 'error': errorMSG}
             self.reply_server.emit(error_send)
             return None
+
 
 class MainWindowSlots(Ui_Form):
     random_generator = Random.new().read
@@ -142,8 +143,8 @@ class MainWindowSlots(Ui_Form):
                                    ":<br>" + str(publicKeyClient) + "</font><br>")
         self.textEdit_8.insertHtml("<font color=\"black\">=================================</font><br>")
 
-        keyrsa_bytes = bytes(str(publicKeyClient), "utf8")
-        rightKeyPublicClient = RSA.importKey(keyrsa_bytes)
+        key_rsa_bytes = bytes(str(publicKeyClient), "utf8")
+        rightKeyPublicClient = RSA.importKey(key_rsa_bytes)
         cryptAES256 = rightKeyPublicClient.encrypt(self.key_aes_room, self.random_generator)
         data_send = {'command': '-sResolutionAdmin', 'response': 1, 'id': id_client,
                      'cryptPrivatkey': str(cryptAES256[0].hex())}
@@ -151,11 +152,11 @@ class MainWindowSlots(Ui_Form):
         return None
 
     def double_clicked_widget_in_room(self):
-        if self.room_now == None:
+        if self.room_now is None:
             self.pushButton_6.setEnabled(False)
             self.lineEdit_3.setEnabled(False)
             name_room = self.listWidget.currentItem().text()
-            if (self.keys_me['publicKey'] == None) or (self.keys_me['privateKey'] == None):
+            if (self.keys_me['publicKey'] is None) or (self.keys_me['privateKey'] is None):
                 self.gen_rsa_kes()
             data_send = {'command': '-sGo', 'name_room': str(name_room),
                          'publicKey': str(self.keys_me['publicKey'].decode('utf-8'))}
@@ -179,20 +180,20 @@ class MainWindowSlots(Ui_Form):
         if self.lineEdit_5.text() == '':
             x = root.winfo_pointerx()
             y = root.winfo_pointery()
-            sum = str(hex(x)) + str(hex(y))
+            summ = str(hex(x)) + str(hex(y))
             len1 = random.randint(256, 512)
             len2 = random.randint(256, 512)
-            by = str(Random.get_random_bytes(len1).hex()) + sum + str(Random.get_random_bytes(len2).hex())
+            by = str(Random.get_random_bytes(len1).hex()) + summ + str(Random.get_random_bytes(len2).hex())
             self.textEdit_2.setText(by)
         return None
 
     def gen_aes_kes(self):
         if self.textEdit_2.toPlainText() == '':
-            randomsha256 = Random.get_random_bytes(512)
-            self.textEdit_2.setText(str(randomsha256.hex()))
+            random_sha_256 = Random.get_random_bytes(512)
+            self.textEdit_2.setText(str(random_sha_256.hex()))
         else:
-            randomsha256 = bytes(self.textEdit_2.toPlainText(), 'utf-8')
-        keyAES256 = hashlib.sha256(randomsha256).digest()
+            random_sha_256 = bytes(self.textEdit_2.toPlainText(), 'utf-8')
+        keyAES256 = hashlib.sha256(random_sha_256).digest()
         self.key_aes_room = keyAES256
         self.textEdit_7.setText(str(keyAES256.hex()))
         return None
@@ -210,19 +211,18 @@ class MainWindowSlots(Ui_Form):
         self.keys_me['privateKey'] = privateKey.exportKey()
 
         self.textEdit_4.setText(str(publicKey.exportKey().decode('utf-8')))
-        #self.textEdit_5.setText(str(privateKey.exportKey().decode('utf-8')))
         return None
 
     def button_send_msg(self):
         if self.lineEdit.toPlainText() != '':
-            msg = self.lineEdit.toPlainText().replace('\n', '<br>')
+            text_msg = self.lineEdit.toPlainText().replace('\n', '<br>')
             self.lineEdit.setPlainText('')
             msg_blocks = []
-            lenght_msg = 2000
-            if len(msg) > lenght_msg:
-                msg_blocks = self.divided_into_teams(msg, lenght_msg)
+            length_msg = 2000
+            if len(text_msg) > length_msg:
+                msg_blocks = self.divided_into_teams(text_msg, length_msg)
             else:
-                msg_blocks.append(msg)
+                msg_blocks.append(text_msg)
             for one_msg in msg_blocks:
                 if len(msg_blocks) >= 3:
                     time.sleep(1)
@@ -233,43 +233,44 @@ class MainWindowSlots(Ui_Form):
                 self.send_to_server(msg_send)
         return None
 
-    def divided_into_teams(self, msg, lenght_msg):
+    @staticmethod
+    def divided_into_teams(text_msg, length_msg):
         msg_blocks = []
-        while len(msg) > lenght_msg:
-            one = msg[:lenght_msg]
+        while len(text_msg) > length_msg:
+            one = text_msg[:length_msg]
             msg_blocks.append(one)
-            msg = msg[lenght_msg:]
-        msg_blocks.append(msg)
+            text_msg = text_msg[length_msg:]
+        msg_blocks.append(text_msg)
         return msg_blocks
 
-    def encrypt_msg_aes(self, msg):
+    def encrypt_msg_aes(self, text_msg):
         try:
             key256 = self.key_aes_room
             BLOCK_SIZE = 32
-            if key256 == None:
-                return msg
+            if key256 is None:
+                return text_msg
             else:
-                msg = msg + (BLOCK_SIZE - len(msg) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(msg) % BLOCK_SIZE)
+                text_msg = text_msg + (BLOCK_SIZE - len(text_msg) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(text_msg) % BLOCK_SIZE)
                 iv = Random.new().read(AES.block_size)
                 cipher = AES.new(key256, AES.MODE_CBC, iv)
-                msg_crypto = base64.b64encode(iv + cipher.encrypt(msg))
+                msg_crypto = base64.b64encode(iv + cipher.encrypt(text_msg))
                 return msg_crypto.decode('utf-8')
         except Exception as error:
             errorMSG = 'error "encrypt_msg_aes": ' + str(error)
             error_send = {'command': '-sError', 'error': errorMSG}
             self.command_dict_handler(error_send)
 
-    def decrypt_msg_aes(self, msg):
+    def decrypt_msg_aes(self, text_msg):
         try:
             key256 = self.key_aes_room
-            if key256 == None:
-                return msg
+            if key256 is None:
+                return text_msg
             else:
-                enc = base64.b64decode(msg)
+                enc = base64.b64decode(text_msg)
                 iv = enc[:AES.block_size]
                 cipher = AES.new(key256, AES.MODE_CBC, iv)
                 s = cipher.decrypt(enc[AES.block_size:]).decode('utf-8')
-                msg_crypto = s[:-ord(s[len(s)-1:])]
+                msg_crypto = s[:-ord(s[len(s) - 1:])]
                 return msg_crypto
         except Exception as error:
             errorMSG = 'error "decrypt_msg_aes": ' + str(error)
@@ -320,7 +321,7 @@ class MainWindowSlots(Ui_Form):
         return None
 
     def first_connect(self, host='127.0.0.1', port_str='8000'):
-        if (self.keys_me['publicKey'] == None) or (self.keys_me['privateKey'] == None):
+        if (self.keys_me['publicKey'] is None) or (self.keys_me['privateKey'] is None):
             self.gen_rsa_kes()
         nickname = self.lineEdit_9.text()
         first_msg = {'command': '-sFirstConnect', 'nickname': nickname,
@@ -350,7 +351,8 @@ class MainWindowSlots(Ui_Form):
     def write_in_window(self, color, text, prefix):
         time_chat = str(datetime.datetime.now().time())
         time_chat = '<font color=\"black\">[' + time_chat[:8] + ']</font>'
-        self.textEdit_Global.insertHtml("<font color=\"" + color + "\">" + time_chat + prefix + ": " + str(text) + "</font><br>")
+        self.textEdit_Global.insertHtml(
+            "<font color=\"" + color + "\">" + time_chat + prefix + ": " + str(text) + "</font><br>")
         cursor = self.textEdit_Global.textCursor()
         self.textEdit_Global.setTextCursor(cursor)
 
@@ -368,7 +370,7 @@ class MainWindowSlots(Ui_Form):
         elif data['command'] == '-sMsg':
             self.accept_message(data)
         elif data['command'] == '-sYourmsg':
-            self.myselfmsg(data)
+            self.myself_msg(data)
         elif data['command'] == '-sFirstRequest':
             self.FirstRequest(data)
         elif data['command'] == '-sResolutionAdmin':
@@ -409,7 +411,7 @@ class MainWindowSlots(Ui_Form):
 
     def yesiaminroom(self, data):
         if data['error'] == '0':
-            if self.key_aes_room == None:
+            if self.key_aes_room is None:
                 self.gen_aes_kes()
             self.pushButton_10.setEnabled(True)
             self.pushButton_6.setEnabled(False)
@@ -432,16 +434,16 @@ class MainWindowSlots(Ui_Form):
 
     def accept_message(self, data):
         nick = data['nickname']
-        id = str(data['id'])
+        id_client = str(data['id'])
         msg_view = self.decrypt_msg_aes(data['message'])
-        prefix = '<font color=\"grey\">' + nick + '(' + id + ')</font>'
+        prefix = '<font color=\"grey\">' + nick + '(' + id_client + ')</font>'
         self.write_in_window('black', msg_view, prefix)
         return None
 
-    def myselfmsg(self, data):
-        myselfmsg = data['message']
+    def myself_msg(self, data):
+        myself_msg = data['message']
         prefix = "<font color=\"blue\">You</font>"
-        self.write_in_window('black', myselfmsg, prefix)
+        self.write_in_window('black', myself_msg, prefix)
         return None
 
     def FirstRequest(self, message):
