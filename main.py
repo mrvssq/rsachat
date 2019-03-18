@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QApplication, QWidget, QDesktopWidget
-from test_slots import MainWindowSlots
+from form_slots import MainWindowSlots
 
 
 class MainWindow(MainWindowSlots):

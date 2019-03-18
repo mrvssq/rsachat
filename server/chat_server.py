@@ -11,12 +11,7 @@ server.bind(('', 8000))
 server.listen(100)
 
 list_clients = {}
-roms = {'Room1': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-        'Room2': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-        'Room3': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-        'Room4': {'id': [], 'admin': 123456, 'publicKeyROOM': 'key', 'requests': []},
-        'Room5': {'id': [], 'admin': 0, 'publicKeyROOM': 'key', 'requests': []}}
-
+roms = {}
 
 def gen_id():
     len_id_from = 100000000
