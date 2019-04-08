@@ -1,14 +1,14 @@
 from form_ui import Ui_Form
-from PyQt5.QtCore import pyqtSignal, QThread
+from PyQt5.QtCore import pyqtSignal, QThread, Qt, QPoint
+from PyQt5.QtGui import QPainter, QPen, QColor
 from Crypto.PublicKey import RSA
 from Crypto import Random
+from Crypto.Random import random
 from Crypto.Cipher import AES
-from tkinter import *
 import base64
 import hashlib
 import datetime
 import socket
-import random
 import json
 import time
 
@@ -61,27 +61,74 @@ class WorkThread(QThread):
             return None
 
 
+def GetRGBColor(value):
+    rgb = int(value * 6.7)
+    r = 250
+    g = 0
+    b = 0
+    while g < 255:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        g = g + 1
+    while r > 0:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        r = r - 1
+    while b < 255:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        b = b + 1
+    while g > 0:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        g = g - 1
+    while r < 255:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        r = r + 1
+    while b > 0:
+        if rgb <= 0:
+            break
+        rgb = rgb - 1
+        b = b - 1
+
+    return [r, g, b]
+
+
 class MainWindowSlots(Ui_Form):
+    server = None
     random_generator = Random.new().read
     keys_me = {'publicKey': None, 'privateKey': None}
     key_server = None
     key_aes_room = None
     keys_clients = {1: None, 0: None}
     room_now = None
+    points = []
+    line = QPoint(130, 0)
+    colorPen = [9, 0, 255]
+    randomReal = ''
 
     def button_connect(self):
         self.gen_random_nickname()
         self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        host = self.lineEdit_1.text()
-        port_str = self.lineEdit_2.text()
-        self.groupBox.setEnabled(False)
-        self.pushButton_10.setEnabled(False)
-        self.pushButton_2.setEnabled(False)
-        self.lineEdit_3.setEnabled(True)
-        self.pushButton.setEnabled(True)
-        self.pushButton_6.setEnabled(True)
-        self.pushButton_3.setEnabled(True)
+        host = self.lineEditHost.text()
+        port_str = self.lineEditPort.text()
+
+        self.groupBoxHostPortNick.setEnabled(False)
+        self.pushButtonExitRoom.setEnabled(False)
+        self.pushButtonConnect.setEnabled(False)
+        self.groupBoxGenKeysRSA.setEnabled(False)
+        self.lineEditNameNewRoom.setEnabled(True)
+        self.pushButtonDisconnect.setEnabled(True)
+        self.pushButtonCreateRoom.setEnabled(True)
+        self.pushButtonSendMsg.setEnabled(True)
         self.tabWidget.setCurrentIndex(0)
+
         self.first_connect(host, port_str)
         return None
 
@@ -99,49 +146,53 @@ class MainWindowSlots(Ui_Form):
         self.key_aes_room = None
         self.keys_clients = {1: None, 0: None}
         self.server.close()
-        self.listWidget.clear()
-        self.listWidget_2.clear()
+        self.listWidgetRooms.clear()
+        self.listWidgetRequests.clear()
         self.label_3.setText('your id: ')
-        self.label_17.setText('<html><head/><body><p align="center">-</p></body></html>')
-        self.textEdit_4.setText('')
-        self.textEdit_5.setText('')
-        self.textEdit_6.setText('')
-        self.textEdit_7.setText('')
-        self.textEdit_8.setText('')
-        self.pushButton_10.setEnabled(False)
-        self.pushButton.setEnabled(False)
-        self.pushButton_3.setEnabled(False)
-        self.pushButton_6.setEnabled(False)
-        self.lineEdit_3.setEnabled(False)
-        self.pushButton_2.setEnabled(True)
-        self.groupBox.setEnabled(True)
+        self.labelNameRoom.setText('<html><head/><body><p align="center">-</p></body></html>')
+        self.textEditMyPublicKeyRSA.setText('')
+        self.textEditMyPrivatKeyRSA.setText('')
+        self.textEditPublicKeyServer.setText('')
+        self.textEditKeyRoomAES.setText('')
+        self.textEditPublicKeysClients.setText('')
+        self.pushButtonExitRoom.setEnabled(False)
+        self.pushButtonDisconnect.setEnabled(False)
+        self.pushButtonSendMsg.setEnabled(False)
+        self.pushButtonCreateRoom.setEnabled(False)
+        self.lineEditNameNewRoom.setEnabled(False)
+        self.pushButtonConnect.setEnabled(True)
+        self.groupBoxGenKeysRSA.setEnabled(True)
+        self.groupBoxHostPortNick.setEnabled(True)
+        self.pushButtonGenAES.setEnabled(True)
+
         self.command_dict_handler({'command': '-sDisconnect', 'info': message})
         return None
 
     def button_create_new_room(self):
-        self.lineEdit_3.setEnabled(False)
-        self.pushButton_6.setEnabled(False)
+        self.lineEditNameNewRoom.setEnabled(False)
+        self.pushButtonCreateRoom.setEnabled(False)
+        self.pushButtonGenAES.setEnabled(False)
 
-        name_room = self.lineEdit_3.text()
-        self.lineEdit_3.setText('')
+        name_room = self.lineEditNameNewRoom.text()
+        self.lineEditNameNewRoom.setText('')
         data_send = {'command': '-sNewRoom', 'name_room': name_room}
         self.send_to_server(data_send)
         return None
 
     def button_exit_room(self):
-        self.pushButton_10.setEnabled(False)
+        self.pushButtonExitRoom.setEnabled(False)
         data_send = {'command': '-sExitRoom'}
         self.send_to_server(data_send)
         return None
 
     def double_clicked_widget2_add_new_user_in_room(self):
-        id_client = self.listWidget_2.currentItem().text()
-        self.listWidget_2.takeItem(self.listWidget_2.currentRow())
+        id_client = self.listWidgetRequests.currentItem().text()
+        self.listWidgetRequests.takeItem(self.listWidgetRequests.currentRow())
 
         publicKeyClient = self.keys_clients[int(id_client)]
-        self.textEdit_8.insertHtml("<font color=\"green\">Public_Key client " + str(id_client) +
-                                   ":<br>" + str(publicKeyClient) + "</font><br>")
-        self.textEdit_8.insertHtml("<font color=\"black\">=================================</font><br>")
+        self.textEditPublicKeysClients.insertHtml("<font color=\"green\">Public_Key client " + str(id_client) +
+                                                  ":<br>" + str(publicKeyClient) + "</font><br>")
+        self.textEditPublicKeysClients.insertHtml("<font color=\"black\">=================================</font><br>")
 
         key_rsa_bytes = bytes(str(publicKeyClient), "utf8")
         rightKeyPublicClient = RSA.importKey(key_rsa_bytes)
@@ -153,16 +204,17 @@ class MainWindowSlots(Ui_Form):
 
     def double_clicked_widget_in_room(self):
         if self.room_now is None:
-            self.pushButton_6.setEnabled(False)
-            self.lineEdit_3.setEnabled(False)
-            name_room = self.listWidget.currentItem().text()
+            self.pushButtonCreateRoom.setEnabled(False)
+            self.pushButtonGenAES.setEnabled(False)
+            self.lineEditNameNewRoom.setEnabled(False)
+            name_room = self.listWidgetRooms.currentItem().text()
             if (self.keys_me['publicKey'] is None) or (self.keys_me['privateKey'] is None):
                 self.gen_rsa_kes()
             data_send = {'command': '-sGo', 'name_room': str(name_room),
                          'publicKey': str(self.keys_me['publicKey'].decode('utf-8'))}
             self.send_to_server(data_send)
         else:
-            kick_id = self.listWidget.currentItem().text()
+            kick_id = self.listWidgetRooms.currentItem().text()
             data_send = {'command': '-sKickUser', 'kick_id': kick_id}
             self.send_to_server(data_send)
         return None
@@ -175,48 +227,41 @@ class MainWindowSlots(Ui_Form):
         self.gen_aes_kes()
         return None
 
-    def button_hand_gen_random_number_keys(self):
-        root = Tk()
-        if self.lineEdit_5.text() == '':
-            x = root.winfo_pointerx()
-            y = root.winfo_pointery()
-            summ = str(hex(x)) + str(hex(y))
-            len1 = random.randint(256, 512)
-            len2 = random.randint(256, 512)
-            by = str(Random.get_random_bytes(len1).hex()) + summ + str(Random.get_random_bytes(len2).hex())
-            self.textEdit_2.setText(by)
-        return None
-
     def gen_aes_kes(self):
-        if self.textEdit_2.toPlainText() == '':
+        if self.randomReal == '':
             random_sha_256 = Random.get_random_bytes(512)
-            self.textEdit_2.setText(str(random_sha_256.hex()))
+            self.textEditRandomNumber.setText(str(random_sha_256.hex()))
         else:
-            random_sha_256 = bytes(self.textEdit_2.toPlainText(), 'utf-8')
+            random_sha_256 = bytes(self.randomReal, 'utf-8')
         keyAES256 = hashlib.sha256(random_sha_256).digest()
         self.key_aes_room = keyAES256
-        self.textEdit_7.setText(str(keyAES256.hex()))
+        self.textEditKeyRoomAES.setText(str(keyAES256.hex()))
         return None
 
     def gen_rsa_kes(self):
-        bit = int(self.comboBox.currentText())
-        if self.textEdit_2.toPlainText() == '':
+        bit = int(self.comboBoxBitRSA.currentText())
+        if self.randomReal == '':
             random_generator = Random.new().read
         else:
-            random_generator = Random.new().read
+            random_generator = self.randomGeneratorReal
         privateKey = RSA.generate(bit, random_generator)
         publicKey = privateKey.publickey()
 
         self.keys_me['publicKey'] = publicKey.exportKey()
         self.keys_me['privateKey'] = privateKey.exportKey()
 
-        self.textEdit_4.setText(str(publicKey.exportKey().decode('utf-8')))
+        self.textEditMyPublicKeyRSA.setText(str(publicKey.exportKey().decode('utf-8')))
+        self.textEditMyPrivatKeyRSA.setText(str(privateKey.exportKey().decode('utf-8')))
         return None
 
     def button_send_msg(self):
-        if self.lineEdit.toPlainText() != '':
-            text_msg = self.lineEdit.toPlainText().replace('\n', '<br>')
-            self.lineEdit.setPlainText('')
+        if self.lineEditSendMsg.toPlainText() != '':
+            if self.server.fileno() == -1:
+                error = 'Error connect'
+                self.write_in_window('red', error, 'Error Connect server')
+                return None
+            text_msg = self.lineEditSendMsg.toPlainText().replace('\n', '<br>')
+            self.lineEditSendMsg.setPlainText('')
             msg_blocks = []
             length_msg = 2000
             if len(text_msg) > length_msg:
@@ -250,7 +295,8 @@ class MainWindowSlots(Ui_Form):
             if key256 is None:
                 return text_msg
             else:
-                text_msg = text_msg + (BLOCK_SIZE - len(text_msg) % BLOCK_SIZE) * chr(BLOCK_SIZE - len(text_msg) % BLOCK_SIZE)
+                text_msg = text_msg + (BLOCK_SIZE - len(text_msg) % BLOCK_SIZE) * chr(
+                    BLOCK_SIZE - len(text_msg) % BLOCK_SIZE)
                 iv = Random.new().read(AES.block_size)
                 cipher = AES.new(key256, AES.MODE_CBC, iv)
                 msg_crypto = base64.b64encode(iv + cipher.encrypt(text_msg))
@@ -315,15 +361,15 @@ class MainWindowSlots(Ui_Form):
             return None
 
     def gen_random_nickname(self):
-        if self.lineEdit_9.text() == '':
+        if self.lineEditNickName.text() == '':
             nick = random.randint(10000, 99999)
-            self.lineEdit_9.setText('nick' + str(nick))
+            self.lineEditNickName.setText('nick' + str(nick))
         return None
 
     def first_connect(self, host='127.0.0.1', port_str='8000'):
         if (self.keys_me['publicKey'] is None) or (self.keys_me['privateKey'] is None):
             self.gen_rsa_kes()
-        nickname = self.lineEdit_9.text()
+        nickname = self.lineEditNickName.text()
         first_msg = {'command': '-sFirstConnect', 'nickname': nickname,
                      'publicKey': self.keys_me['publicKey'].decode('utf-8')}
         try:
@@ -344,8 +390,8 @@ class MainWindowSlots(Ui_Form):
         try:
             if not self.workThread.wait(1):
                 self.workThread.terminate()
-        except:
-            print('cycle not found')
+        except Exception as error:
+            print('cycle not found. error: ' + str(error))
         return None
 
     def write_in_window(self, color, text, prefix):
@@ -364,7 +410,7 @@ class MainWindowSlots(Ui_Form):
         elif data['command'] == '-sOnline':
             self.add_items_to_widget(data['users'])
         elif data['command'] == '-sNewRoom':
-            self.yesiaminroom(data)
+            self.yesIamInRoom(data)
         elif data['command'] == '-sDisconnect':
             self.write_in_window('red', data['info'], 'SYSTEM')
         elif data['command'] == '-sMsg':
@@ -386,21 +432,22 @@ class MainWindowSlots(Ui_Form):
         return None
 
     def add_items_to_widget(self, items):
-        self.listWidget.clear()
+        self.listWidgetRooms.clear()
         for i in items:
-            self.listWidget.addItem(str(i))
-        self.listWidget.sortItems()
+            self.listWidgetRooms.addItem(str(i))
+        self.listWidgetRooms.sortItems()
         return None
 
     def exit_room(self, data):
         name_room = data['name']
         self.room_now = None
         self.key_aes_room = None
-        self.textEdit_7.setText('')
-        self.label_17.setText('<html><head/><body><p align="center">-</p></body></html>')
-        self.pushButton_6.setEnabled(True)
-        self.lineEdit_3.setEnabled(True)
-        self.pushButton_10.setEnabled(False)
+        self.textEditKeyRoomAES.setText('')
+        self.labelNameRoom.setText('<html><head/><body><p align="center">-</p></body></html>')
+        self.pushButtonCreateRoom.setEnabled(True)
+        self.lineEditNameNewRoom.setEnabled(True)
+        self.pushButtonExitRoom.setEnabled(False)
+        self.pushButtonGenAES.setEnabled(True)
         if data['indicator'] == 'exit':
             msg_view = "You left the room: " + name_room
             self.write_in_window('purple', msg_view, 'SERVER')
@@ -409,25 +456,28 @@ class MainWindowSlots(Ui_Form):
             self.write_in_window('red', msg_view, 'SERVER')
         return None
 
-    def yesiaminroom(self, data):
+    def yesIamInRoom(self, data):
         if data['error'] == '0':
             if self.key_aes_room is None:
                 self.gen_aes_kes()
-            self.pushButton_10.setEnabled(True)
-            self.pushButton_6.setEnabled(False)
-            self.lineEdit_3.setEnabled(False)
+            self.pushButtonExitRoom.setEnabled(True)
+            self.pushButtonCreateRoom.setEnabled(False)
+            self.lineEditNameNewRoom.setEnabled(False)
+            self.pushButtonGenAES.setEnabled(False)
             name_room = data['name_room']
             self.room_now = data['name_room']
-            self.label_17.setText('<html><head/><body><p align="center">' + name_room + '</p></body></html>')
+            self.labelNameRoom.setText('<html><head/><body><p align="center">' + name_room + '</p></body></html>')
 
             publicKey = self.keys_me['publicKey']
-            self.textEdit_8.insertHtml("<font color=\"red\">Public_Key client ADMIN" +
-                                       ":<br>" + str(publicKey) + "</font><br>")
-            self.textEdit_8.insertHtml("<font color=\"black\">=================================</font><br>")
+            self.textEditPublicKeysClients.insertHtml("<font color=\"red\">Public_Key client ADMIN" +
+                                                      ":<br>" + str(publicKey) + "</font><br>")
+            self.textEditPublicKeysClients.insertHtml(
+                "<font color=\"black\">=================================</font><br>")
         else:
-            self.pushButton_6.setEnabled(True)
-            self.lineEdit_3.setEnabled(True)
-            self.pushButton_10.setEnabled(False)
+            self.pushButtonCreateRoom.setEnabled(True)
+            self.lineEditNameNewRoom.setEnabled(True)
+            self.pushButtonGenAES.setEnabled(True)
+            self.pushButtonExitRoom.setEnabled(False)
             error = data['error']
             self.command_dict_handler({'command': '-sError', 'error': str(error)})
         return None
@@ -454,10 +504,10 @@ class MainWindowSlots(Ui_Form):
             self.write_in_window('red', msg_view, 'SERVER')
             msg_view = "You new nickname: " + nickname
             self.write_in_window('green', msg_view, 'SERVER')
-            self.lineEdit_9.setText(nickname)
+            self.lineEditNickName.setText(nickname)
         welcome = message['welcome']
         self.key_server = message['PublicKeyServer']
-        self.textEdit_6.setText(self.key_server)
+        self.textEditPublicKeyServer.setText(self.key_server)
         self.write_in_window('green', welcome, 'SERVER')
         self.add_items_to_widget(message['rooms'])
         self.label_3.setText('your id: ' + message['id'])
@@ -468,9 +518,9 @@ class MainWindowSlots(Ui_Form):
         publicKeyClient = data['publicKey']
         self.keys_clients[int(id_client)] = publicKeyClient
         requests = data['requests']
-        self.listWidget_2.clear()
+        self.listWidgetRequests.clear()
         for i in requests:
-            self.listWidget_2.addItem(str(i))
+            self.listWidgetRequests.addItem(str(i))
         prefix = "Room(" + self.room_now + ")"
         msg_view = "client " + id_client + " wants to connect to the room"
         self.write_in_window('purple', msg_view, prefix)
@@ -478,16 +528,17 @@ class MainWindowSlots(Ui_Form):
 
     def RefreshRequests(self, data):
         requests = data['requests']
-        self.listWidget_2.clear()
+        self.listWidgetRequests.clear()
         for i in requests:
-            self.listWidget_2.addItem(str(i))
+            self.listWidgetRequests.addItem(str(i))
         return None
 
     def invitation_room(self, data):
         if data['error'] == 0:
-            self.pushButton_10.setEnabled(True)
-            self.pushButton_6.setEnabled(False)
-            self.lineEdit_3.setEnabled(False)
+            self.pushButtonExitRoom.setEnabled(True)
+            self.pushButtonCreateRoom.setEnabled(False)
+            self.lineEditNameNewRoom.setEnabled(False)
+            self.pushButtonGenAES.setEnabled(False)
             name_room = data['name_room']
             self.room_now = name_room
             welcome = data['welcome']
@@ -498,8 +549,8 @@ class MainWindowSlots(Ui_Form):
             PrivatKeyRoom = private_key.decrypt(CryptPrivatKeyRoom)
 
             self.key_aes_room = PrivatKeyRoom
-            self.textEdit_7.setText(str(PrivatKeyRoom.hex()))
-            self.label_17.setText('<html><head/><body><p align="center">' + name_room + '</p></body></html>')
+            self.textEditKeyRoomAES.setText(str(PrivatKeyRoom.hex()))
+            self.labelNameRoom.setText('<html><head/><body><p align="center">' + name_room + '</p></body></html>')
         return None
 
     def error_command(self, data):
@@ -509,3 +560,85 @@ class MainWindowSlots(Ui_Form):
         else:
             self.write_in_window('red', error, 'ERROR')
         return None
+
+    def mousePressEventWidgetRandom(self, event):
+        size = self.horizontalSliderSizePoint.value()
+        self.points.append({'pos': event.pos(), 'color': self.colorPen, 'size': size})
+        self.widget.update()
+
+    def mouseMoveEventWidgetRandom(self, event):
+        size = self.horizontalSliderSizePoint.value()
+        self.points.append({'pos': event.pos(), 'color': self.colorPen, 'size': size})
+        self.widget.update()
+
+    def mouseReleaseEventWidgetRandom(self, event):  # Генерация рандомного числа
+        if event is None:
+            return
+        for point in self.points:
+            pos = point['pos'].x() + point['pos'].y()
+            color = point['color'][0] + point['color'][1] + point['color'][2]
+            size = point['size']
+            self.randomReal = hex(pos + color + size)
+
+        by = self.randomGeneratorReal(512)
+        self.textEditRandomNumber.setText(str(by))
+
+    def randomGeneratorReal(self, n):
+        sumBytes = bytes(self.randomReal, encoding='utf-8')
+        arr = []
+        for byte in sumBytes:
+            arr.append(byte)
+        Random.random.shuffle(arr)
+        sumBytes = bytes(arr)
+        count = n - len(sumBytes)
+        if count > 0:
+            sumBytes = sumBytes + Random.get_random_bytes(count)
+        if count < 0:
+            sumBytes = sumBytes[:n]
+        return sumBytes
+
+    def paintEventWidgetRandom(self, event):
+        if event is None:
+            return
+        if self.points is None:
+            return
+        painter = QPainter()
+        painter.begin(self.widget)
+        self.drawPoints(painter)
+        painter.end()
+
+    def drawPoints(self, painter):
+        for point in self.points:
+            painter.setPen(QPen(QColor(point['color'][0], point['color'][1], point['color'][2]), point['size']))
+            painter.drawPoint(point['pos'])
+
+    def mousePressEventColor(self, event):
+        self.line = event.pos()
+        self.widgetColor.update()
+
+    def mouseMoveEventColor(self, event):
+        self.line = event.pos()
+        self.widgetColor.update()
+
+    def paintEventColor(self, event):
+        if event is None:
+            return
+        painter = QPainter()
+        painter.begin(self.widgetColor)
+        self.drawLine(painter)
+        painter.end()
+
+    def drawLine(self, painter):
+        pos = self.line
+        if (pos.x() > 230) or (pos.x() < 0):
+            return
+        self.colorPen = GetRGBColor(pos.x())
+        pen = QPen(QColor(255, 255, 255), 2, Qt.SolidLine)
+        painter.setPen(pen)
+        painter.drawLine(pos.x(), 0, pos.x(), 30)
+
+    def buttonClearPoints(self):
+        self.points = []
+        self.widget.update()
+        self.textEditRandomNumber.setText('')
+        self.randomReal = ''
