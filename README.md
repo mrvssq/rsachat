@@ -15,6 +15,6 @@ RSA Chat Python (client/server) Чат на стадии доработки
 Графический генератор случайных чисел:
 1. В поле рисуете выбранным цветом и выбранной толщиной линии. Генератор считывает координаты каждой точки, цвет и размер точки. Исходя из этих 6 int данных(x, y, R, G, B, size) генерируется строка с набором лучайных байт. Ваш рисунок влияет на генерацию RSA ключей и AES-256.
 
-![programm](img_programm.png)
+![programm](screenshots/img_programm.png)
 
-![programm](img_random.png)
+![programm](screenshots/img_random.png)
