@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 chat_server.py
+python3 main_server.py

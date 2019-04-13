@@ -68,7 +68,7 @@ class MainWindow(MainWindowSlots):
         self.widget.update()
         return None
 
-    def mouseReleaseEventWidgetRandom(self, event):  # Генерация рандомного числа
+    def mouseReleaseEventWidgetRandom(self, event):
         if event is None:
             return
         for point in self.points:
