@@ -74,7 +74,9 @@ class Ui_formrsachat(object):
         self.textEditGlobal = QtWidgets.QTextEdit(self.tab)
         self.textEditGlobal.setGeometry(QtCore.QRect(5, 32, 475, 318))
         self.textEditGlobal.setMinimumSize(QtCore.QSize(460, 0))
-        self.textEditGlobal.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse)
+        self.textEditGlobal.setUndoRedoEnabled(True)
+        self.textEditGlobal.setReadOnly(True)
+        self.textEditGlobal.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByKeyboard|QtCore.Qt.LinksAccessibleByMouse|QtCore.Qt.TextBrowserInteraction|QtCore.Qt.TextSelectableByKeyboard|QtCore.Qt.TextSelectableByMouse)
         self.textEditGlobal.setObjectName("textEditGlobal")
         self.listWidgetRooms = QtWidgets.QListWidget(self.tab)
         self.listWidgetRooms.setGeometry(QtCore.QRect(487, 32, 123, 231))
@@ -359,6 +361,11 @@ class Ui_formrsachat(object):
         self.labelOnline.setText(_translate("formrsachat", "Online:"))
         self.labelNameRoom.setText(_translate("formrsachat", "<html><head/><body><p align=\"center\">-</p></body></html>"))
         self.pushButtonSendMsg.setText(_translate("formrsachat", "Send"))
+        self.textEditGlobal.setHtml(_translate("formrsachat", "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0//EN\" \"http://www.w3.org/TR/REC-html40/strict.dtd\">\n"
+"<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
+"p, li { white-space: pre-wrap; }\n"
+"</style></head><body style=\" font-family:\'Noto Sans\'; font-size:10pt; font-weight:400; font-style:normal;\">\n"
+"<p style=\"-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><br /></p></body></html>"))
         self.pushButtonExitRoom.setText(_translate("formrsachat", "Exit Room"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.tab), _translate("formrsachat", "Chat"))
         self.label_2.setText(_translate("formrsachat", "Port:"))

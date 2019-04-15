@@ -36,6 +36,7 @@ def checkValidNickname(nickname):
     check = {'state': True, 'msg': 'valid nickname'}
 
     for nicknameExist in [dictClients[client]['nickname'] for client in dictClients.keys()]:
+        print(nickname)
         if nickname == nicknameExist:
             check = {'state': False, 'msg': 'error Nickname (With that Nickname already exists)'}
     if nickname in forbiddenNicknames:

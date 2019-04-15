@@ -232,34 +232,34 @@ class MainWindowSlots(Ui_formrsachat):
         return None
 
     def encryptTextToAES(self, message):
-        message = str(bytes(message, encoding='utf-8'))
         try:
-            BS = 32
             key256 = self.roomKeyAES
-            if key256 is None:
+            if (key256 is None) or (self.roomNow is None):
                 return message
             else:
+                BS = 16
                 message = message + (BS - len(message) % BS) * chr(BS - len(message) % BS)
                 iv = Random.new().read(AES.block_size)
-                cipher = AES.new(key256, AES.MODE_CBC, iv)
-                enc = base64.b64encode(iv + cipher.encrypt(message))
-                return enc.decode('utf-8')
+                cipher = AES.new(key256, AES.MODE_CFB, iv)
+                enc = base64.b64encode(iv + cipher.encrypt(message)).decode('utf-8')
+                return enc
         except Exception as errorTry:
             errorMsg = 'encryptTextToAES. try: ' + str(errorTry)
             errorSend = {'command': '-sError', 'type': 'try', 'error': errorMsg}
             self.comandsHandler(errorSend)
+
         return None
 
     def decryptTextFromAES(self, message):
         try:
-            BS = 32
             key256 = self.roomKeyAES
-            if key256 is None:
+            if (key256 is None) or (self.roomNow is None):
                 return message
             else:
+                BS = 16
                 enc = base64.b64decode(message)
                 iv = enc[:BS]
-                cipher = AES.new(key256, AES.MODE_CBC, iv)
+                cipher = AES.new(key256, AES.MODE_CFB, iv)
                 s = cipher.decrypt(enc[AES.block_size:]).decode('utf-8')
                 return s[0:-ord(s[-1])]
         except Exception as errorTry:
