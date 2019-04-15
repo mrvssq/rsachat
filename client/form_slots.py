@@ -1,5 +1,6 @@
 from form_ui import Ui_formrsachat
 from work_thread import WorkThread
+from PyQt5.QtGui import QTextCursor
 from Crypto.PublicKey import RSA
 from Crypto import Random
 from Crypto.Random import random
@@ -340,6 +341,9 @@ class MainWindowSlots(Ui_formrsachat):
     def writeInGlobalWindow(self, color, text, prefix):
         timeChat = str(datetime.datetime.now().time())
         timeChat = '<font color=\"black\">[' + timeChat[:8] + ']</font>'
+        cursor = self.textEditGlobal.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        self.textEditGlobal.setTextCursor(cursor)
         self.textEditGlobal.insertHtml(
             "<font color=\"" + color + "\">" + timeChat + prefix + ": " + str(text) + "</font><br>")
         cursor = self.textEditGlobal.textCursor()
