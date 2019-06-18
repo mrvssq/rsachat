@@ -23,13 +23,11 @@ class WorkThread(QThread):
                         if commandRight is not None:
                             self.replyServer.emit(commandRight)
                 else:
-                    error = 'Error Disconnect server'
-                    self.replyServer.emit({'command': '-sError', 'type': 'exit', 'error': error})
+                    errorMsg = 'Error Disconnect server'
+                    self.disconnectEvent(errorMsg)
                     break
             except Exception as errorTry:
-                errorMsg = 'cycle "while" run. try: ' + str(errorTry)
-                errorSend = {'command': '-sError', 'type': 'try', 'error': errorMsg}
-                self.replyServer.emit(errorSend)
+                self.excaptionWrite(errorTry)
                 break
         print('exit cycle "while" / disconnect server')
         return None
@@ -42,10 +40,21 @@ class WorkThread(QThread):
                 for block in blocks:
                     commandWithJson += self.key.decrypt(block)
                 commandRight = json.loads(commandWithJson.decode('utf-8'))
-                print(commandRight)
                 return commandRight
         except Exception as errorTry:
-            errorMsg = 'commandHandler. try: ' + str(errorTry)
-            errorSend = {'command': '-sError', 'type': 'try', 'error': errorMsg}
-            self.replyServer.emit(errorSend)
+            self.excaptionWrite(errorTry)
             return None
+
+    def disconnectEvent(self, message):
+        errorSend = {'command': '-sError', 'type': 'exit',
+                     'text': message, 'room': None, 'address': None}
+        self.replyServer.emit(errorSend)
+
+    def excaptionWrite(self, errorTry):
+        import inspect
+        nameFun = inspect.stack()[1][3]
+        errorMsg = 'nameFun: ' + str(nameFun) + '. TRY: ' + str(errorTry)
+        errorSend = {'command': '-sError', 'type': 'orange',
+                     'text': errorMsg, 'room': None, 'address': None}
+        self.replyServer.emit(errorSend)
+        return None
