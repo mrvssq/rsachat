@@ -15,6 +15,7 @@ class TabPage(QtWidgets.QWidget):
     WidgetOnline = pyqtSignal(dict)
     ExitRoom = pyqtSignal(str)
     ErrorCommand = pyqtSignal(dict)
+    SendKeyRoom = pyqtSignal(dict)
 
     def __init__(self, nameRoom, active, encryptionType, parent=None, key=None):
         super().__init__(parent)
@@ -94,6 +95,8 @@ class TabPage(QtWidgets.QWidget):
     def buttonSaveKeysAES(self):
         if self.tempKeyAES is not None:
             self.keyRoomAES.append(self.tempKeyAES)
+            if self.activateState == 3:
+                self.SendKeyRoom.emit({'keyAES': self.tempKeyAES.hex(), 'room': self.nameRoom})
             self.currentCountKey = self.currentCountKey + 1
             self.tempKeyAES = None
         self.SettingsDlg.hide()
@@ -111,7 +114,7 @@ class TabPage(QtWidgets.QWidget):
             else:
                 if result:
                     self.tempKeyAES = keyAES256
-                    self.uiSettings.textEditKeyRoomAES.setText(str(keyAES256.hex()))
+                    self.uiSettings.textEditKeyRoomAES.setText(keyAES256.hex())
                     self.widgetGenRandom.hide()
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
@@ -218,9 +221,10 @@ class TabPage(QtWidgets.QWidget):
         try:
             clientID = int(self.uiChat.listWidgetOnline.currentItem().text())
             toolTip = self.uiChat.listWidgetOnline.currentItem().toolTip()
+            keyRSA = self.uiChat.listWidgetOnline.currentItem().whatsThis()
             if toolTip != 'admin' and self.activateState == 3:
                 if toolTip == 'request':
-                    key = self.clientKeys[clientID]
+                    key = keyRSA
                 else:
                     key = None
                 sendDict = {'nameRoom': self.nameRoom,
@@ -243,24 +247,30 @@ class TabPage(QtWidgets.QWidget):
         try:
             self.uiChat.listWidgetOnline.clear()
             self.uiSettings.textEditPublicKeysClients.clear()
-            self.clientKeys = requests
-            if admin in users:
-                users.remove(admin)
-                itemWidget = QtWidgets.QListWidgetItem(str(admin))
+            if admin in users.keys():
+                adminKey = users.pop(admin)
+                itemWidget = QtWidgets.QListWidgetItem(admin)
                 itemWidget.setBackground(QColor(255, 142, 142))
+                itemWidget.setWhatsThis(adminKey)
                 itemWidget.setToolTip("admin")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-            for item in users:
-                itemWidget = QtWidgets.QListWidgetItem(str(item))
+                self.writeInClientKeysRSA(admin, adminKey, 'red')
+            for item in users.keys():
+                key = users[item]
+                itemWidget = QtWidgets.QListWidgetItem(item)
                 itemWidget.setBackground(QColor(142, 255, 203))
+                itemWidget.setWhatsThis(users[item])
                 itemWidget.setToolTip("user")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-            for item in self.clientKeys.keys():
-                itemWidget = QtWidgets.QListWidgetItem(str(item))
+                self.writeInClientKeysRSA(item, key, 'green')
+            for item in requests.keys():
+                key = requests[item]
+                itemWidget = QtWidgets.QListWidgetItem(item)
                 itemWidget.setBackground(QColor(214, 142, 255))
+                itemWidget.setWhatsThis(requests[item])
                 itemWidget.setToolTip("request")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-                self.writeInClientKeysRSA(item, self.clientKeys[item], 'purple')
+                self.writeInClientKeysRSA(item, key, 'purple')
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
         return None

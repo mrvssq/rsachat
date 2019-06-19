@@ -20,9 +20,13 @@ class MainWindowSlots(Ui_MainWindow):
 
     def showWidgetMyKeys(self):
         self.myKeysForm.show()
-        self.uiMyKeys.textEditMyPublicKeyRSA.setText(str(self.myKeysRSA['publicKey'].decode('utf-8')))
-        self.uiMyKeys.textEditMyPrivatKeyRSA.setText(str(self.myKeysRSA['privateKey'].decode('utf-8')))
-        self.uiMyKeys.textEditPublicKeyServer.setText(str(self.serverKey))
+
+        if self.myKeysRSA['publicKey'] is not None\
+            and self.myKeysRSA['privateKey'] is not None\
+                and self.serverKey is not None:
+            self.uiMyKeys.textEditMyPublicKeyRSA.setText(str(self.myKeysRSA['publicKey'].decode('utf-8')))
+            self.uiMyKeys.textEditMyPrivatKeyRSA.setText(str(self.myKeysRSA['privateKey'].decode('utf-8')))
+            self.uiMyKeys.textEditPublicKeyServer.setText(str(self.serverKey))
         return None
 
     def showWidgetLog(self):
@@ -105,6 +109,7 @@ class MainWindowSlots(Ui_MainWindow):
                 newStackWidget.WidgetOnline.connect(self.workClientsFromWidgetOnline)
                 newStackWidget.ExitRoom.connect(self.buttonExitRoom)
                 newStackWidget.ErrorCommand.connect(self.errorCommand)
+                newStackWidget.SendKeyRoom.connect(self.sendKeyRoom)
                 index = self.stackedWidgetChats.addWidget(newStackWidget)
                 self.stackWidgetDict[nameRoom] = index
                 self.stackedWidgetChats.setCurrentIndex(index)
@@ -216,6 +221,13 @@ class MainWindowSlots(Ui_MainWindow):
 
     def buttonExitRoom(self, nameRoom):
         dataToSend = {'command': '-sExitRoom', 'room': nameRoom}
+        self.sendToServer(dataToSend)
+        return None
+
+    def sendKeyRoom(self, data):
+        nameRoom = data['room']
+        key = data['keyAES']
+        dataToSend = {'command': '-sSetKeyAES', 'keyAES': key, 'room': nameRoom}
         self.sendToServer(dataToSend)
         return None
 
@@ -455,13 +467,8 @@ class MainWindowSlots(Ui_MainWindow):
         try:
             nameRoom = data['room']
             index = self.stackWidgetDict[nameRoom]
-            clientKeys = {}
-            for i in range(len(data['requests'])):
-                user = data['requests'][i]
-                key = data['keys'][i]
-                clientKeys[user] = key
             self.stackedWidgetChats.widget(index).refreshOnlineListinTab(
-                data['admin'], data['users'], clientKeys)
+                str(data['admin']), data['users'], data['requests'])
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None

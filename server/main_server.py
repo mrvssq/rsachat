@@ -249,6 +249,8 @@ def comandsHandler(data, clientID):
             createNewRoom(data, clientID)
         elif command == '-sKickUser':
             kickUserOutRoom(data, clientID)
+        elif command == '-sSetKeyAES':
+            sendKeyAES(data, clientID)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
         removeSocketCompletely(clientID)
@@ -272,16 +274,16 @@ def processingMessage(data, clientID):
 def refreshClients(nameRoom, clientID=None):
     try:
         if clientID in dictRooms[nameRoom]['users'] or clientID is None:
-            requestsClient = []
-            requestsClientKeys = []
-            users = dictRooms[nameRoom]['users']
+            users = {}
+            requests = {}
             admin = dictRooms[nameRoom]['admin']
             if nameRoom in dictRooms.keys():
+                for usr in dictRooms[nameRoom]['users']:
+                    users[usr] = dictClients[usr]['Public_Key']
                 for req in dictRooms[nameRoom]['requests']:
-                    requestsClient.append(req)
-                    requestsClientKeys.append(dictClients[req]['Public_Key'])
+                    requests[req] = dictClients[req]['Public_Key']
                 sendData = {'command': '-sRefreshUsers', 'users': users, 'admin': admin,
-                            'requests': requestsClient, 'keys': requestsClientKeys, 'room': nameRoom}
+                            'requests': requests, 'room': nameRoom}
                 if clientID is None:
                     broadcastMessage(sendData, clientID, nameRoom)
                 else:
@@ -429,6 +431,18 @@ def kickUserOutRoom(data, clientID):
             setRoomRight(kickId, nameRoom, 0, 'red', welcome)
             refreshClients(nameRoom)
             print(str(clientID) + ': -sKickUser. kick user:' + str(kickId))
+    except Exception as error:
+        excaptionWrite(error, clientID, nameRoom)
+    return None
+
+
+def sendKeyAES(data, clientID):
+    nameRoom = None
+    try:
+        nameRoom = data['room']
+        if clientID == dictRooms[nameRoom]['admin']:
+            key = data['keyAES']
+            print('nameRoom: ' + nameRoom + ', new keyAES: ' + key)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
