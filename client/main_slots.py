@@ -85,13 +85,13 @@ class MainWindowSlots(Ui_MainWindow):
                     index = self.stackWidgetDict[nameRoom]
                     self.stackedWidgetChats.setCurrentIndex(index)
                 else:
-                    index = self.addNewTab(nameRoom, 0)
+                    index = self.addNewTab(nameRoom, 0, 1)
                     self.stackedWidgetChats.setCurrentIndex(index)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None
 
-    def addNewTab(self, nameRoom, acitve):
+    def addNewTab(self, nameRoom, acitve, encType):
         try:
             if nameRoom in self.stackWidgetDict.keys():
                 index = self.stackWidgetDict[nameRoom]
@@ -100,7 +100,7 @@ class MainWindowSlots(Ui_MainWindow):
                 self.stackedWidgetChats.setCurrentIndex(index)
                 return index
             else:
-                newStackWidget = TabPage(nameRoom, acitve, self.stackedWidgetChats)
+                newStackWidget = TabPage(nameRoom, acitve, encType, self.stackedWidgetChats)
                 newStackWidget.SendMsg.connect(self.sendMyMessage)
                 newStackWidget.WidgetOnline.connect(self.workClientsFromWidgetOnline)
                 newStackWidget.ExitRoom.connect(self.buttonExitRoom)
@@ -399,7 +399,7 @@ class MainWindowSlots(Ui_MainWindow):
                 msgView = "You new nickname: " + nickname
                 self.writeInGlobalWindow('green', msgView, 'SERVER', nameRoom, nameRoom)
                 self.lineEditNickName.setText(nickname)
-            self.addNewTab(nameRoom, 2)
+            self.addNewTab(nameRoom, 2, 0)
             welcome = data['welcome']
             self.serverKey = data['PublicKeyServer']
             self.uiMyKeys.textEditPublicKeyServer.setText(self.serverKey)
@@ -470,7 +470,7 @@ class MainWindowSlots(Ui_MainWindow):
         nameRoom = None
         try:
             nameRoom = data['room']
-            self.addNewTab(nameRoom, 3)
+            self.addNewTab(nameRoom, 3, 1)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None

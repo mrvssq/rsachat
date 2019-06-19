@@ -16,13 +16,14 @@ class TabPage(QtWidgets.QWidget):
     ExitRoom = pyqtSignal(str)
     ErrorCommand = pyqtSignal(dict)
 
-    def __init__(self, nameRoom, active, parent=None, key=None):
+    def __init__(self, nameRoom, active, encryptionType, parent=None, key=None):
         super().__init__(parent)
         self.nameRoom = nameRoom
         self.activateState = active
         self.keyRoomAES = [key]
         self.tempKeyAES = None
         self.currentCountKey = 0
+        self.encryptionType = encryptionType
         self.clientKeys = []
 
         self.WidgetChat = QWidget(self)
@@ -76,10 +77,13 @@ class TabPage(QtWidgets.QWidget):
     def showEventSettingsDlg(self, event):
         if event is None:
             return None
-        if self.keyRoomAES[self.currentCountKey] is not None:
-            self.uiSettings.textEditKeyRoomAES.setText(str(self.keyRoomAES[self.currentCountKey].hex()))
-        else:
-            self.uiSettings.textEditKeyRoomAES.setText('no encryption')
+        key = 'error key'
+        if self.encryptionType == 1:
+            if self.keyRoomAES[self.currentCountKey] is not None:
+                key = str(self.keyRoomAES[self.currentCountKey].hex())
+        if self.encryptionType == 0:
+            key = 'no encryption'
+        self.uiSettings.textEditKeyRoomAES.setText(key)
 
     def hideEventSettingsDlg(self, event):
         if event is None:
@@ -166,7 +170,8 @@ class TabPage(QtWidgets.QWidget):
         self.ExitRoom.emit(self.nameRoom)
 
     def buttonGenKeyAES(self):
-        self.widgetGenRandom.show()
+        if self.encryptionType == 1:
+            self.widgetGenRandom.show()
 
     def showSettingsRoom(self):
         self.SettingsDlg.exec_()
