@@ -77,13 +77,15 @@ class TabPage(QtWidgets.QWidget):
     def showEventSettingsDlg(self, event):
         if event is None:
             return None
-        key = 'error key'
-        if self.encryptionType == 1:
-            if self.keyRoomAES[-1] is not None:
-                key = str(self.keyRoomAES[-1].hex())
-        if self.encryptionType == 0:
-            key = 'no encryption'
-        self.uiSettings.textEditKeyRoomAES.setText(key)
+        if self.activateState == 2 or self.activateState == 3:
+            key = 'error key'
+            if self.encryptionType == 1:
+                if self.keyRoomAES[-1] is not None:
+                    key = str(self.keyRoomAES[-1].hex())
+            if self.encryptionType == 0:
+                key = 'no encryption'
+            self.uiSettings.textEditKeyRoomAES.setText(key)
+        return None
 
     def hideEventSettingsDlg(self, event):
         if event is None:
