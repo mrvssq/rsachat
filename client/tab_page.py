@@ -1,6 +1,6 @@
-from ui_WidgetTemplateChat import Ui_FormTemplateChat
-from ui_DialogSettingsRoom import Ui_DialogSettingsRoom
-from genRandom_slots import GenRandomSlots
+from ui_widget_template_chat import Ui_FormTemplateChat
+from ui_dialog_settings_room import Ui_DialogSettingsRoom
+from gen_random_slots import GenRandomSlots
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import pyqtSignal, QRect
 from PyQt5.QtGui import QTextCursor, QColor

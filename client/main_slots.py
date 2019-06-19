@@ -1,6 +1,6 @@
 from ui_main import Ui_MainWindow
-from work_thread import WorkThread
-from TabPage import TabPage
+from thread_work import WorkThread
+from tab_page import TabPage
 from PyQt5.QtWidgets import QWidget, QInputDialog, QDesktopWidget, QListWidgetItem
 from PyQt5.QtGui import QColor, QTextCursor
 from Crypto.PublicKey import RSA

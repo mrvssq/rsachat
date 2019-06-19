@@ -1,4 +1,4 @@
-from ui_WidgetGenRandom import Ui_FormGenRandom
+from ui_widget_gen_random import Ui_FormGenRandom
 from PyQt5.QtGui import QColor, QPainter, QPen
 from Crypto.Random import random
 from Crypto import Random
