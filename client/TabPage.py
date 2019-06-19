@@ -170,7 +170,7 @@ class TabPage(QtWidgets.QWidget):
         self.ExitRoom.emit(self.nameRoom)
 
     def buttonGenKeyAES(self):
-        if self.encryptionType == 1:
+        if self.encryptionType == 1 and self.activateState != 2:
             self.widgetGenRandom.show()
 
     def showSettingsRoom(self):
