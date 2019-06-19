@@ -67,6 +67,7 @@ class MainWindow(MainWindowSlots):
 
     def createLogSlots(self):
         self.uiLog.setupUi(self.logForm)
+        self.logForm.resizeEvent = self.resizeEventLog
         return None
 
     def createAboutSlots(self):
@@ -91,6 +92,15 @@ class MainWindow(MainWindowSlots):
         w = event.size().width()
         self.labelYourID.setGeometry(QRect(0, 0, w, 30))
         return None
+
+    def resizeEventLog(self, event):
+        w = event.size().width()
+        h = event.size().height()
+        self.uiLog.tabWidget.setGeometry(QRect(0, 0, w, h))
+        self.uiLog.textEditMainLog.setGeometry(QRect(0, 0, w-4, h-75))
+        self.uiLog.textEditRequestsLog.setGeometry(QRect(0, 0, w-4, h-75))
+        self.uiLog.pushButtonClearMainLog.setGeometry(QRect(w-100, h-70, 88, 33))
+        self.uiLog.pushButtonClearRequestsLog.setGeometry(QRect(w-100, h-70, 88, 33))
 
     def resizeEventGlobalWindow(self, event):
         w = event.size().width()

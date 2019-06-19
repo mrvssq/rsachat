@@ -13,7 +13,7 @@ class Ui_DialogAbout(object):
         DialogAbout.setObjectName("DialogAbout")
         DialogAbout.resize(240, 210)
         DialogAbout.setMinimumSize(QtCore.QSize(240, 210))
-        DialogAbout.setMaximumSize(QtCore.QSize(240, 240))
+        DialogAbout.setMaximumSize(QtCore.QSize(240, 210))
         self.layoutWidget = QtWidgets.QWidget(DialogAbout)
         self.layoutWidget.setGeometry(QtCore.QRect(10, 30, 211, 131))
         self.layoutWidget.setObjectName("layoutWidget")

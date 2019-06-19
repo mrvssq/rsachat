@@ -99,6 +99,7 @@ class TabPage(QtWidgets.QWidget):
                             'dictKeysRSA': self.clientKeys,
                             'room': self.nameRoom}
                 self.SendKeyRoom.emit(dataSend)
+                self.writeNotif('Room key AES256 changed', 'SERVER')
             self.tempKeyAES = None
         self.SettingsDlg.hide()
 
@@ -288,6 +289,18 @@ class TabPage(QtWidgets.QWidget):
             self.excaptionWrite(errorTry)
         return None
 
+    def writeNotif(self, message, prefix):
+        try:
+            import datetime
+            timeChat = datetime.datetime.today().strftime("%H:%M:%S")
+            timeChat = '<font color=\"black\">[' + timeChat + ']</font>'
+            textToWindowChat = "<font color=\"purple\">" + \
+                               timeChat + prefix + ": " + message + "</font><br>"
+            self.writeTextInWindowChat(textToWindowChat)
+        except Exception as errorTry:
+            self.excaptionWrite(errorTry)
+        return None
+
     def writeTextInWindowChat(self, text):
         cursor = self.uiChat.textEditGlobal.textCursor()
         cursor.movePosition(QTextCursor.End)
@@ -332,6 +345,8 @@ class TabPage(QtWidgets.QWidget):
         return self.activateState
 
     def setKeyRoomAES(self, key):
+        if self.keyRoomAES[-1] is not None and self.keyRoomAES[-1] != key:
+            self.writeNotif('Room key AES256 changed', 'SERVER')
         self.keyRoomAES.append(key)
         return None
 

@@ -12,6 +12,8 @@ class Ui_DialogSettingsRoom(object):
     def setupUi(self, DialogSettingsRoom):
         DialogSettingsRoom.setObjectName("DialogSettingsRoom")
         DialogSettingsRoom.resize(500, 400)
+        DialogSettingsRoom.setMinimumSize(QtCore.QSize(500, 400))
+        DialogSettingsRoom.setMaximumSize(QtCore.QSize(500, 400))
         self.textEditPublicKeysClients = QtWidgets.QTextEdit(DialogSettingsRoom)
         self.textEditPublicKeysClients.setGeometry(QtCore.QRect(10, 110, 481, 251))
         self.textEditPublicKeysClients.setMaximumSize(QtCore.QSize(16777215, 16777215))

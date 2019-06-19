@@ -12,7 +12,8 @@ class Ui_FormMyKeys(object):
     def setupUi(self, FormMyKeys):
         FormMyKeys.setObjectName("FormMyKeys")
         FormMyKeys.resize(640, 711)
-        FormMyKeys.setMinimumSize(QtCore.QSize(640, 480))
+        FormMyKeys.setMinimumSize(QtCore.QSize(640, 711))
+        FormMyKeys.setMaximumSize(QtCore.QSize(640, 711))
         self.layoutWidget = QtWidgets.QWidget(FormMyKeys)
         self.layoutWidget.setGeometry(QtCore.QRect(10, 10, 621, 36))
         self.layoutWidget.setObjectName("layoutWidget")
