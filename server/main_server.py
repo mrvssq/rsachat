@@ -440,9 +440,12 @@ def sendKeyAES(data, clientID):
     nameRoom = None
     try:
         nameRoom = data['room']
-        if clientID == dictRooms[nameRoom]['admin']:
-            key = data['keyAES']
-            print('nameRoom: ' + nameRoom + ', new keyAES: ' + key)
+        clientSend = int(data['id'])
+        if clientID == dictRooms[nameRoom]['admin'] and clientSend != clientID:
+            sendData = {'command': '-sSetKeyAES',
+                        'room': nameRoom,
+                        'encryptKeysAES': data['encryptKeysAES']}
+            sendOneClientMessage(sendData, clientSend)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None

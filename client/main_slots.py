@@ -14,6 +14,8 @@ class MainWindowSlots(Ui_MainWindow):
     myKeysRSA = {'publicKey': None, 'privateKey': None}
     serverKey = None
     stackWidgetDict = {}
+    tryCount = 0
+    ID = None
 
     tempPublicKey = None
     tempPrivateKey = None
@@ -31,6 +33,9 @@ class MainWindowSlots(Ui_MainWindow):
 
     def showWidgetLog(self):
         self.logForm.show()
+        self.tryCount = 0
+        self.menuOptions.setTitle('Options')
+        self.actionLog.setText('&Log')
         return None
 
     def showWidgetAbout(self):
@@ -209,6 +214,7 @@ class MainWindowSlots(Ui_MainWindow):
         self.myKeysRSA = {'publicKey': None, 'privateKey': None}
         self.serverKey = None
         self.stackWidgetDict = {}
+        self.ID = None
 
     def showWidgetRooms(self):
         if self.actionShow_Rooms.isChecked() and not self.actionConnect.isEnabled():
@@ -226,9 +232,16 @@ class MainWindowSlots(Ui_MainWindow):
 
     def sendKeyRoom(self, data):
         nameRoom = data['room']
-        key = data['keyAES']
-        dataToSend = {'command': '-sSetKeyAES', 'keyAES': key, 'room': nameRoom}
-        self.sendToServer(dataToSend)
+        keyAES = data['keyAES']
+        dictKeysRSA = data['dictKeysRSA']
+        for usr in dictKeysRSA.keys():
+            if int(usr) != self.ID:
+                encryptKey = self.cryptTextForRSA(keyAES, dictKeysRSA[usr], splitOn=False)
+                dataToSend = {'command': '-sSetKeyAES',
+                              'id': usr,
+                              'encryptKeysAES': encryptKey.hex(),
+                              'room': nameRoom}
+                self.sendToServer(dataToSend)
         return None
 
     def workClientsFromWidgetOnline(self, data):
@@ -240,7 +253,9 @@ class MainWindowSlots(Ui_MainWindow):
             if toolTip == 'request':
                 self.acceptRequestInRoom(clientID, nameRoom, data['keyClient'])
             elif toolTip == 'user':
-                dataToSend = {'command': '-sKickUser', 'kick_id': clientID, 'room': nameRoom}
+                dataToSend = {'command': '-sKickUser',
+                              'kick_id': clientID,
+                              'room': nameRoom}
                 self.sendToServer(dataToSend)
             else:
                 print('toolTip is :' + toolTip)
@@ -306,21 +321,29 @@ class MainWindowSlots(Ui_MainWindow):
             self.excaptionWrite(errorTry, nameRoom)
         return None
 
-    def cryptoForServerRSA(self, messageJson):
+    def cryptTextForRSA(self, messageJson, keyText, splitOn=True):
+        if splitOn:
+            begin = b'{begin{--[SPLIT]--'
+            split = b'--[SPLIT]--'
+            end = b'--[SPLIT]--}end}'
+        else:
+            begin = b''
+            split = b''
+            end = b''
         try:
-            serverKey = bytes(self.serverKey, "utf8")
-            key = RSA.importKey(serverKey)
-            sendMSG = b'{begin{--[SPLIT]--'
+            keyBytesRSA = bytes(keyText, "utf8")
+            key = RSA.importKey(keyBytesRSA)
+            sendMSG = begin
             if len(messageJson) > 250:
                 i = 0
                 while len(messageJson) > 250:
                     enterMSG = messageJson[:250]
                     message = key.encrypt(bytes(enterMSG, "utf8"), self.uiGenRandom.randomGeneratorPointsArt)
-                    sendMSG += message[0] + b'--[SPLIT]--'
+                    sendMSG += message[0] + split
                     messageJson = messageJson[250:]
                     i += 1
             message = key.encrypt(bytes(messageJson, "utf8"), self.uiGenRandom.randomGeneratorPointsArt)
-            sendMSG += message[0] + b'--[SPLIT]--}end}'
+            sendMSG += message[0] + end
             return sendMSG
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
@@ -330,7 +353,7 @@ class MainWindowSlots(Ui_MainWindow):
         try:
             self.writeInGlobalWindow('green', str(message), 'CLIENT', None, 1)
             messageJson = json.dumps(message)
-            sendMSG = self.cryptoForServerRSA(messageJson)
+            sendMSG = self.cryptTextForRSA(messageJson, self.serverKey, splitOn=True)
             if len(sendMSG) < 4096:
                 self.server.send(sendMSG)
             else:
@@ -356,6 +379,10 @@ class MainWindowSlots(Ui_MainWindow):
                 self.uiLog.textEditMainLog.insertHtml(textToWindowChat)
                 cursor = self.uiLog.textEditMainLog.textCursor()
                 self.uiLog.textEditMainLog.setTextCursor(cursor)
+                if color == 'orange' and not self.logForm.isVisible():
+                    self.tryCount += 1
+                    self.menuOptions.setTitle('Options +' + str(self.tryCount))
+                    self.actionLog.setText('&Log +' + str(self.tryCount))
             elif address == 1:
                 textToWindowChat = "<font color=\"" + color + "\">" + \
                                    timeChat + prefix + ": " + str(text) + "</font><br>"
@@ -390,6 +417,8 @@ class MainWindowSlots(Ui_MainWindow):
                 self.responseCreateNewRoom(data)
             elif command == '-sMsg':
                 self.acceptMessage(data)
+            elif command == '-sSetKeyAES':
+                self.setKeyAES(data)
             elif command == '-sError':
                 self.errorCommand(data)
             else:
@@ -411,6 +440,7 @@ class MainWindowSlots(Ui_MainWindow):
                 msgView = "You new nickname: " + nickname
                 self.writeInGlobalWindow('green', msgView, 'SERVER', nameRoom, nameRoom)
                 self.lineEditNickName.setText(nickname)
+            self.ID = int(data['id'])
             self.addNewTab(nameRoom, 2, 0)
             welcome = data['welcome']
             self.serverKey = data['PublicKeyServer']
@@ -491,6 +521,20 @@ class MainWindowSlots(Ui_MainWindow):
             prefix = '<font color=\"grey\">' + nick + '(' + clientID + ')</font>'
             index = self.stackWidgetDict[nameRoom]
             self.stackedWidgetChats.widget(index).writeMSG(data['message'], prefix, True)
+        except Exception as errorTry:
+            self.excaptionWrite(errorTry, nameRoom)
+        return None
+
+    def setKeyAES(self, data):
+        nameRoom = None
+        try:
+            nameRoom = data['room']
+            encryptKeysAES = bytes.fromhex(data['encryptKeysAES'])
+            key = RSA.importKey(self.myKeysRSA['privateKey'])
+            bytesKeyAES = key.decrypt(encryptKeysAES).decode('utf-8')
+            keyAES = bytes.fromhex(bytesKeyAES)
+            index = self.stackWidgetDict[nameRoom]
+            self.stackedWidgetChats.widget(index).setKeyRoomAES(keyAES)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None

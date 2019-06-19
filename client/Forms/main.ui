@@ -323,7 +323,7 @@
      <height>30</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuConnect">
+   <widget class="QMenu" name="menuFile">
     <property name="title">
      <string>Fi&amp;le</string>
     </property>
@@ -331,7 +331,7 @@
     <addaction name="actionDisconnect"/>
     <addaction name="actionExit"/>
    </widget>
-   <widget class="QMenu" name="menuKeys">
+   <widget class="QMenu" name="menuOptions">
     <property name="enabled">
      <bool>true</bool>
     </property>
@@ -353,9 +353,9 @@
     </property>
     <addaction name="actionShow_Rooms"/>
    </widget>
-   <addaction name="menuConnect"/>
+   <addaction name="menuFile"/>
    <addaction name="menuView"/>
-   <addaction name="menuKeys"/>
+   <addaction name="menuOptions"/>
    <addaction name="menuInfo"/>
   </widget>
   <action name="actionMy_keys">

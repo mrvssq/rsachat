@@ -23,9 +23,8 @@ class TabPage(QtWidgets.QWidget):
         self.activateState = active
         self.keyRoomAES = [key]
         self.tempKeyAES = None
-        self.currentCountKey = 0
         self.encryptionType = encryptionType
-        self.clientKeys = []
+        self.clientKeys = {}
 
         self.WidgetChat = QWidget(self)
         self.resizeEvent = self.resizeEventGridLayout
@@ -80,8 +79,8 @@ class TabPage(QtWidgets.QWidget):
             return None
         key = 'error key'
         if self.encryptionType == 1:
-            if self.keyRoomAES[self.currentCountKey] is not None:
-                key = str(self.keyRoomAES[self.currentCountKey].hex())
+            if self.keyRoomAES[-1] is not None:
+                key = str(self.keyRoomAES[-1].hex())
         if self.encryptionType == 0:
             key = 'no encryption'
         self.uiSettings.textEditKeyRoomAES.setText(key)
@@ -96,8 +95,10 @@ class TabPage(QtWidgets.QWidget):
         if self.tempKeyAES is not None:
             self.keyRoomAES.append(self.tempKeyAES)
             if self.activateState == 3:
-                self.SendKeyRoom.emit({'keyAES': self.tempKeyAES.hex(), 'room': self.nameRoom})
-            self.currentCountKey = self.currentCountKey + 1
+                dataSend = {'keyAES': self.tempKeyAES.hex(),
+                            'dictKeysRSA': self.clientKeys,
+                            'room': self.nameRoom}
+                self.SendKeyRoom.emit(dataSend)
             self.tempKeyAES = None
         self.SettingsDlg.hide()
 
@@ -108,9 +109,8 @@ class TabPage(QtWidgets.QWidget):
             randomSHA256 = self.uiGenRandom.randomGeneratorPointsArt(512)
             keyAES256 = hashlib.sha256(randomSHA256).digest()
             if event is None:
-                if self.keyRoomAES[self.currentCountKey] is None:
+                if self.keyRoomAES[-1] is None:
                     self.keyRoomAES.append(keyAES256)
-                    self.currentCountKey = self.currentCountKey + 1
             else:
                 if result:
                     self.tempKeyAES = keyAES256
@@ -219,16 +219,15 @@ class TabPage(QtWidgets.QWidget):
 
     def doubleClickedWidgetOnline(self):
         try:
-            clientID = int(self.uiChat.listWidgetOnline.currentItem().text())
+            clientID = self.uiChat.listWidgetOnline.currentItem().text()
             toolTip = self.uiChat.listWidgetOnline.currentItem().toolTip()
-            keyRSA = self.uiChat.listWidgetOnline.currentItem().whatsThis()
             if toolTip != 'admin' and self.activateState == 3:
                 if toolTip == 'request':
-                    key = keyRSA
+                    key = self.clientKeys[clientID]
                 else:
                     key = None
                 sendDict = {'nameRoom': self.nameRoom,
-                            'clientID': clientID,
+                            'clientID': int(clientID),
                             'keyClient': key,
                             'toolTip': toolTip}
                 self.WidgetOnline.emit(sendDict)
@@ -251,24 +250,24 @@ class TabPage(QtWidgets.QWidget):
                 adminKey = users.pop(admin)
                 itemWidget = QtWidgets.QListWidgetItem(admin)
                 itemWidget.setBackground(QColor(255, 142, 142))
-                itemWidget.setWhatsThis(adminKey)
                 itemWidget.setToolTip("admin")
+                self.clientKeys[admin] = adminKey
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.writeInClientKeysRSA(admin, adminKey, 'red')
             for item in users.keys():
                 key = users[item]
                 itemWidget = QtWidgets.QListWidgetItem(item)
                 itemWidget.setBackground(QColor(142, 255, 203))
-                itemWidget.setWhatsThis(users[item])
                 itemWidget.setToolTip("user")
+                self.clientKeys[item] = users[item]
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.writeInClientKeysRSA(item, key, 'green')
             for item in requests.keys():
                 key = requests[item]
                 itemWidget = QtWidgets.QListWidgetItem(item)
                 itemWidget.setBackground(QColor(214, 142, 255))
-                itemWidget.setWhatsThis(requests[item])
                 itemWidget.setToolTip("request")
+                self.clientKeys[item] = requests[item]
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.writeInClientKeysRSA(item, key, 'purple')
         except Exception as errorTry:
@@ -299,7 +298,7 @@ class TabPage(QtWidgets.QWidget):
 
     def encryptTextToAES(self, message):
         try:
-            key256 = self.keyRoomAES[self.currentCountKey]
+            key256 = self.keyRoomAES[-1]
             if key256 is None:
                 return message
             else:
@@ -315,7 +314,7 @@ class TabPage(QtWidgets.QWidget):
 
     def decryptTextFromAES(self, message):
         try:
-            key256 = self.keyRoomAES[self.currentCountKey]
+            key256 = self.keyRoomAES[-1]
             if key256 is None:
                 return message
             else:
@@ -334,11 +333,10 @@ class TabPage(QtWidgets.QWidget):
 
     def setKeyRoomAES(self, key):
         self.keyRoomAES.append(key)
-        self.currentCountKey = self.currentCountKey + 1
         return None
 
     def getKeyRoomAES(self):
-        return self.keyRoomAES[self.currentCountKey]
+        return self.keyRoomAES[-1]
 
     def excaptionWrite(self, errorTry):
         import inspect
