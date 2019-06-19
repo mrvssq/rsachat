@@ -2,9 +2,9 @@ from PyQt5.QtCore import QRect
 from PyQt5.QtWidgets import QApplication, QDesktopWidget, QMainWindow, QWidget, QDialog
 from main_slots import MainWindowSlots
 from genRandom_slots import GenRandomSlots
-from WidgetMyKeys_ui import Ui_FormMyKeys
-from DialogAbout_ui import Ui_DialogAbout
-from WidgetLog_ui import Ui_FormLog
+from ui_WidgetMyKeys import Ui_FormMyKeys
+from ui_DialogAbout import Ui_DialogAbout
+from ui_WidgetLog import Ui_FormLog
 
 
 class MainWindow(MainWindowSlots):

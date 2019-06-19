@@ -1,4 +1,4 @@
-from main_ui import Ui_MainWindow
+from ui_main import Ui_MainWindow
 from work_thread import WorkThread
 from TabPage import TabPage
 from PyQt5.QtWidgets import QWidget, QInputDialog, QDesktopWidget, QListWidgetItem
