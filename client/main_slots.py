@@ -572,7 +572,7 @@ class MainWindowSlots(Ui_MainWindow):
             prefix = '<font color=\"grey\">' + nick + '(' + clientID + ')</font>'
             index = self.stackWidgetDict[nameRoom]
             self.stackedWidgetChats.widget(index).writeMSG(data['message'], prefix, True)
-            if nameRoom != self.listWidgetRooms.currentItem().toolTip():
+            if index != self.stackedWidgetChats.currentIndex():
                 for item in range(self.listWidgetRooms.count()):
                     if nameRoom == self.listWidgetRooms.item(item).toolTip():
                         self.notifMSG[nameRoom] += 1
