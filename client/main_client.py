@@ -76,7 +76,7 @@ class MainWindow(MainWindowSlots):
 
     def connect_slots(self):
         self.listWidgetRooms.itemDoubleClicked.connect(self.doubleClickedWidgetRooms)
-        self.listWidgetRooms.itemClicked.connect(self.clickedDisplayWidgetRooms)
+        self.listWidgetRooms.itemSelectionChanged.connect(self.selectionChangedWidgetRooms)
         self.actionConnect.triggered.connect(self.buttonConnect)
         self.pushButtonConnect.clicked.connect(self.buttonConnect)
         self.actionDisconnect.triggered.connect(self.buttonDisconnect)

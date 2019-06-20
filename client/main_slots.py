@@ -11,15 +11,17 @@ import json
 
 class MainWindowSlots(Ui_MainWindow):
     server = None
-    myKeysRSA = {'publicKey': None, 'privateKey': None}
     serverKey = None
-    stackWidgetDict = {}
-    publicKeysClients = {}
-    tryCount = 0
-    ID = None
-
     tempPublicKey = None
     tempPrivateKey = None
+    workThreadClient = None
+    myKeysRSA = {'publicKey': None, 'privateKey': None}
+
+    stackWidgetDict = {}
+    publicKeysClients = {}
+    notifMSG = {}
+    tryCount = 0
+    ID = None
 
     def showWidgetMyKeys(self):
         self.myKeysForm.show()
@@ -86,11 +88,14 @@ class MainWindowSlots(Ui_MainWindow):
             self.excaptionWrite(errorTry)
         return None
 
-    def clickedDisplayWidgetRooms(self):
+    def selectionChangedWidgetRooms(self):
         nameRoom = None
         try:
-            if self.listWidgetRooms.currentItem().toolTip() == 'room':
-                nameRoom = self.listWidgetRooms.currentItem().text()
+            if self.listWidgetRooms.currentItem().whatsThis() == 'room':
+                nameRoom = self.listWidgetRooms.currentItem().toolTip()
+                self.listWidgetRooms.currentItem().setText(nameRoom)
+                self.listWidgetRooms.currentItem().setBackground(QColor(255, 255, 255))
+                self.notifMSG[nameRoom] = 0
                 if nameRoom in self.stackWidgetDict.keys():
                     index = self.stackWidgetDict[nameRoom]
                     self.stackedWidgetChats.setCurrentIndex(index)
@@ -210,10 +215,15 @@ class MainWindowSlots(Ui_MainWindow):
         return None
 
     def clearVarForNoConnect(self):
-        self.server = None
-        self.myKeysRSA = {'publicKey': None, 'privateKey': None}
+        del self.workThreadClient
+        del self.server
         self.serverKey = None
+        self.tempPublicKey = None
+        self.tempPrivateKey = None
+        self.myKeysRSA = {'publicKey': None, 'privateKey': None}
         self.stackWidgetDict = {}
+        self.publicKeysClients = {}
+        self.notifMSG = {}
         self.ID = None
 
     def showWidgetRooms(self):
@@ -292,10 +302,10 @@ class MainWindowSlots(Ui_MainWindow):
     def doubleClickedWidgetRooms(self):
         nameRoom = None
         try:
-            if self.listWidgetRooms.currentItem().toolTip() == 'create':
+            if self.listWidgetRooms.currentItem().whatsThis() == 'create':
                 self.createNewRoom()
-            elif self.listWidgetRooms.currentItem().toolTip() == 'room':
-                nameRoom = self.listWidgetRooms.currentItem().text()
+            elif self.listWidgetRooms.currentItem().whatsThis() == 'room':
+                nameRoom = self.listWidgetRooms.currentItem().toolTip()
                 index = self.stackWidgetDict[nameRoom]
                 activateCodeRoom = self.stackedWidgetChats.widget(index).getActivateCodeRoom()
                 if activateCodeRoom == 0:
@@ -475,12 +485,15 @@ class MainWindowSlots(Ui_MainWindow):
             self.listWidgetRooms.clear()
             itemWidget = QListWidgetItem("create new room")
             itemWidget.setBackground(QColor(142, 255, 203))
-            itemWidget.setToolTip("create")
+            itemWidget.setToolTip('system item')
+            itemWidget.setWhatsThis("create")
             self.listWidgetRooms.addItem(itemWidget)
             items.sort()
             for item in items:
+                self.notifMSG[item] = 0
                 iWidget = QListWidgetItem(item)
-                iWidget.setToolTip("room")
+                iWidget.setWhatsThis("room")
+                iWidget.setToolTip(item)
                 self.listWidgetRooms.addItem(iWidget)
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
@@ -559,6 +572,13 @@ class MainWindowSlots(Ui_MainWindow):
             prefix = '<font color=\"grey\">' + nick + '(' + clientID + ')</font>'
             index = self.stackWidgetDict[nameRoom]
             self.stackedWidgetChats.widget(index).writeMSG(data['message'], prefix, True)
+            if nameRoom != self.listWidgetRooms.currentItem().toolTip():
+                for item in range(self.listWidgetRooms.count()):
+                    if nameRoom == self.listWidgetRooms.item(item).toolTip():
+                        self.notifMSG[nameRoom] += 1
+                        self.listWidgetRooms.item(item).setBackground(QColor(255, 220, 102))
+                        self.listWidgetRooms.item(item).setText(
+                            '+' + str(self.notifMSG[nameRoom]) + ' ' + nameRoom)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None
