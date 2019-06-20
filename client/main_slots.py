@@ -362,11 +362,13 @@ class MainWindowSlots(Ui_MainWindow):
             return 'error cryptoForServerRSA'
 
     def sendToServer(self, message):
+        import time
         try:
             self.writeInGlobalWindow('green', str(message), 'CLIENT', None, 1)
             messageJson = json.dumps(message)
             sendMSG = self.cryptTextForRSA(messageJson, self.serverKey, splitOn=True)
             if len(sendMSG) < 4096:
+                time.sleep(0.01)
                 self.server.send(sendMSG)
             else:
                 errorMsg = 'send_to_server. error: len command have big size'

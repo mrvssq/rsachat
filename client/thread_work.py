@@ -19,7 +19,7 @@ class WorkThread(QThread):
                 if messageJson:
                     commands = messageJson[7:-5].split(b'}end}{begin{')
                     for command in commands:
-                        commandRight = self.commandHandler(command)
+                        commandRight = self.comandsHandlerServer(command)
                         if commandRight is not None:
                             self.replyServer.emit(commandRight)
                 else:
@@ -32,7 +32,7 @@ class WorkThread(QThread):
         print('exit cycle "while" / disconnect server')
         return None
 
-    def commandHandler(self, command):
+    def comandsHandlerServer(self, command):
         try:
             if command:
                 commandWithJson = b''

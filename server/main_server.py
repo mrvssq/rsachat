@@ -88,31 +88,37 @@ class MainBegin:
         self.connSocket = connSock
         self.id = genRandomID(100000000, 999999999)
         try:
-            messageJson = self.connSocket.recv(2048)
-            message = json.loads(messageJson.decode('utf-8'))
-            if message['command'] == '-sFirstConnect':
-                nickname = message['nickname']
-                publicKeyClient = message['publicKey']
-                checkNickname = checkValidNickname(nickname)
-                if not checkNickname['state']:
-                    nickname = genRandomNickname(10000, 99999)
-                dictClients[self.id] = {'socket': self.connSocket, 'Public_Key': publicKeyClient,
+            if self.connSocket == 'fake':
+                nickname = genRandomNickname(10000, 99999)
+                dictClients[self.id] = {'socket': None, 'Public_Key': str(globalPublic),
                                         'nickname': nickname}
-                firstRequest = {'command': '-sFirstRequest',
-                                'error': checkNickname['msg'],
-                                'nickname': nickname,
-                                'id': str(self.id),
-                                'rooms': [room for room in dictRooms.keys()],
-                                'PublicKeyServer': str(globalPublic),
-                                'welcome': 'Welcome to this chat! Your id: ' + str(self.id),
-                                'room': globalRoom}
+                dictRooms['BigSizeRoom']['users'].append(self.id)
+            else:
+                messageJson = self.connSocket.recv(2048)
+                message = json.loads(messageJson.decode('utf-8'))
+                if message['command'] == '-sFirstConnect':
+                    nickname = message['nickname']
+                    publicKeyClient = message['publicKey']
+                    checkNickname = checkValidNickname(nickname)
+                    if not checkNickname['state']:
+                        nickname = genRandomNickname(10000, 99999)
+                    dictClients[self.id] = {'socket': self.connSocket, 'Public_Key': publicKeyClient,
+                                            'nickname': nickname}
+                    firstRequest = {'command': '-sFirstRequest',
+                                    'error': checkNickname['msg'],
+                                    'nickname': nickname,
+                                    'id': str(self.id),
+                                    'rooms': [room for room in dictRooms.keys()],
+                                    'PublicKeyServer': str(globalPublic),
+                                    'welcome': 'Welcome to this chat! Your id: ' + str(self.id),
+                                    'room': globalRoom}
 
-                sendOneClientMessage(firstRequest, self.id)
-                dictRooms[globalRoom]['users'].append(self.id)
-                refreshClients(globalRoom)
-                dictClients[self.id]['Thread'] = WorkThreadClients(self.id, dictClients[self.id]['socket'])
-                dictClients[self.id]['Thread'].start()
-                print('new client :' + str(self.id) + ' connect to server in room: root')
+                    sendOneClientMessage(firstRequest, self.id)
+                    dictRooms[globalRoom]['users'].append(self.id)
+                    refreshClients(globalRoom)
+                    dictClients[self.id]['Thread'] = WorkThreadClients(self.id, dictClients[self.id]['socket'])
+                    dictClients[self.id]['Thread'].start()
+                    print('new client :' + str(self.id) + ' connect to server in room: root')
         except Exception as error:
             excaptionWrite(error, self.id)
             removeSocketCompletely(self.id)
@@ -133,7 +139,7 @@ class WorkThreadClients(Thread):
                     commands = dataJson[7:-5].split(b'}end}{begin{')
                     for command in commands:
                         commandRight = self.commandHandler(command)
-                        comandsHandler(commandRight, self.id)
+                        comandsHandlerServer(commandRight, self.id)
                 else:
                     removeSocketCompletely(self.id)
             except Exception as error:
@@ -179,13 +185,16 @@ def cryptoRSA(messageJson, clientID):
 
 
 def sendOneClientMessage(message, clientID):
+    import time
     try:
-        messageJson = json.dumps(message)
-        sendMsg = cryptoRSA(messageJson, clientID)
-        if len(sendMsg) <= 4096:
-            dictClients[clientID]['socket'].send(sendMsg)
-        else:
-            print('len command have big size')
+        if dictClients[clientID]['socket'] is not None:
+            messageJson = json.dumps(message)
+            sendMsg = cryptoRSA(messageJson, clientID)
+            if len(sendMsg) <= 4096:
+                dictClients[clientID]['socket'].send(sendMsg)
+                time.sleep(0.01)
+            else:
+                print('len command have big size')
     except Exception as error:
         excaptionWrite(error, clientID)
         removeSocketCompletely(clientID)
@@ -226,7 +235,7 @@ def writeInLogClient(text, clientID, typeColor, nameRoom):
     return None
 
 
-def comandsHandler(data, clientID):
+def comandsHandlerServer(data, clientID):
     nameRoom = None
     try:
         nameRoom = data['room']
@@ -514,6 +523,11 @@ if __name__ == '__main__':
     publicKey = privateKey.publickey()
     globalPublic = publicKey.exportKey().decode('utf-8')
     globalPrivate = bytes(privateKey.exportKey())
+
+    #   dictRooms['BigSizeRoom'] = {'admin': None, 'users': [], 'requests': []}
+    #   for usrFake in range(80):
+    #       MainBegin('fake')
+
     while True:
         connSocket, addr = server.accept()
         MainBegin(connSocket)

@@ -215,7 +215,7 @@ class TabPage(QtWidgets.QWidget):
             blocksMSG = textwrap.wrap(textMSG, lengthMSG)
             for message in blocksMSG:
                 if len(blocksMSG) >= 3:
-                    time.sleep(10)
+                    time.sleep(1)
                 encryptMsg = self.encryptTextToAES(message)
                 msgDict = {'nameRoom': self.nameRoom, 'textMSG': encryptMsg}
                 self.writeMSG(message, "<font color=\"blue\">You</font>", False)
