@@ -24,7 +24,7 @@ class TabPage(QtWidgets.QWidget):
         self.keyRoomAES = [key]
         self.tempKeyAES = None
         self.encryptionType = encryptionType
-        self.clientKeys = {}
+        self.clients = []
 
         self.WidgetChat = QWidget(self)
         self.resizeEvent = self.resizeEventGridLayout
@@ -98,8 +98,8 @@ class TabPage(QtWidgets.QWidget):
             self.keyRoomAES.append(self.tempKeyAES)
             if self.activateState == 3:
                 dataSend = {'keyAES': self.tempKeyAES.hex(),
-                            'dictKeysRSA': self.clientKeys,
-                            'room': self.nameRoom}
+                            'room': self.nameRoom,
+                            'users': self.clients}
                 self.SendKeyRoom.emit(dataSend)
                 self.writeNotif('Room key AES256 changed', 'SERVER')
             self.tempKeyAES = None
@@ -142,6 +142,7 @@ class TabPage(QtWidgets.QWidget):
             self.uiChat.pushButtonExitRoom.setText('Exit Room')
             self.uiSettings.textEditKeyRoomAES.setText('')
             self.uiSettings.textEditPublicKeysClients.setText('')
+            self.clients = []
         elif code == 1:
             self.uiChat.indicatorLabel.setText("request")
             self.uiChat.indicatorLabel.setStyleSheet("color: rgb(255, 255, 255);"
@@ -153,6 +154,7 @@ class TabPage(QtWidgets.QWidget):
             self.uiChat.pushButtonExitRoom.setText('Cancel')
             self.uiSettings.textEditKeyRoomAES.setText('')
             self.uiSettings.textEditPublicKeysClients.setText('')
+            self.clients = []
         elif code == 2:
             self.uiChat.indicatorLabel.setText("user")
             self.uiChat.indicatorLabel.setStyleSheet("color: rgb(255, 255, 255);"
@@ -225,13 +227,8 @@ class TabPage(QtWidgets.QWidget):
             clientID = self.uiChat.listWidgetOnline.currentItem().text()
             toolTip = self.uiChat.listWidgetOnline.currentItem().toolTip()
             if toolTip != 'admin' and self.activateState == 3:
-                if toolTip == 'request':
-                    key = self.clientKeys[clientID]
-                else:
-                    key = None
                 sendDict = {'nameRoom': self.nameRoom,
                             'clientID': int(clientID),
-                            'keyClient': key,
                             'toolTip': toolTip}
                 self.WidgetOnline.emit(sendDict)
         except Exception as errorTry:
@@ -249,30 +246,29 @@ class TabPage(QtWidgets.QWidget):
         try:
             self.uiChat.listWidgetOnline.clear()
             self.uiSettings.textEditPublicKeysClients.clear()
-            if admin in users.keys():
-                adminKey = users.pop(admin)
-                itemWidget = QtWidgets.QListWidgetItem(admin)
+            self.clients.clear()
+            if admin in users:
+                users.remove(admin)
+                itemWidget = QtWidgets.QListWidgetItem(str(admin))
                 itemWidget.setBackground(QColor(255, 142, 142))
                 itemWidget.setToolTip("admin")
-                self.clientKeys[admin] = adminKey
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-                self.writeInClientKeysRSA(admin, adminKey, 'red')
-            for item in users.keys():
-                key = users[item]
-                itemWidget = QtWidgets.QListWidgetItem(item)
+                self.clients.append(admin)
+                #self.writeInClientKeysRSA(admin, adminKey, 'red')
+            for item in users:
+                itemWidget = QtWidgets.QListWidgetItem(str(item))
                 itemWidget.setBackground(QColor(142, 255, 203))
                 itemWidget.setToolTip("user")
-                self.clientKeys[item] = users[item]
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-                self.writeInClientKeysRSA(item, key, 'green')
-            for item in requests.keys():
-                key = requests[item]
-                itemWidget = QtWidgets.QListWidgetItem(item)
+                self.clients.append(item)
+                #self.writeInClientKeysRSA(item, key, 'green')
+            for item in requests:
+                itemWidget = QtWidgets.QListWidgetItem(str(item))
                 itemWidget.setBackground(QColor(214, 142, 255))
                 itemWidget.setToolTip("request")
-                self.clientKeys[item] = requests[item]
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-                self.writeInClientKeysRSA(item, key, 'purple')
+                self.clients.append(item)
+                #self.writeInClientKeysRSA(item, key, 'purple')
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
         return None

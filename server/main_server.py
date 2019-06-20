@@ -251,6 +251,8 @@ def comandsHandler(data, clientID):
             kickUserOutRoom(data, clientID)
         elif command == '-sSetKeyAES':
             sendKeyAES(data, clientID)
+        elif command == '-sGetRSAKeyClient':
+            setRSAKeyClient(data['user'], clientID)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
         removeSocketCompletely(clientID)
@@ -274,20 +276,35 @@ def processingMessage(data, clientID):
 def refreshClients(nameRoom, clientID=None):
     try:
         if clientID in dictRooms[nameRoom]['users'] or clientID is None:
-            users = {}
-            requests = {}
             admin = dictRooms[nameRoom]['admin']
             if nameRoom in dictRooms.keys():
                 for usr in dictRooms[nameRoom]['users']:
-                    users[usr] = dictClients[usr]['Public_Key']
+                    if clientID != usr:
+                        setRSAKeyClient(usr, clientID, nameRoom)
                 for req in dictRooms[nameRoom]['requests']:
-                    requests[req] = dictClients[req]['Public_Key']
-                sendData = {'command': '-sRefreshUsers', 'users': users, 'admin': admin,
-                            'requests': requests, 'room': nameRoom}
+                    setRSAKeyClient(req, clientID, nameRoom)
+                sendData = {'command': '-sRefreshUsers',
+                            'admin': admin,
+                            'users': dictRooms[nameRoom]['users'],
+                            'requests': dictRooms[nameRoom]['requests'],
+                            'room': nameRoom}
                 if clientID is None:
                     broadcastMessage(sendData, clientID, nameRoom)
                 else:
                     sendOneClientMessage(sendData, clientID)
+    except Exception as error:
+        excaptionWrite(error, clientID, nameRoom)
+    return None
+
+
+def setRSAKeyClient(user, clientID, nameRoom=None):
+    try:
+        keyRSA = dictClients[user]['Public_Key']
+        sendData = {'command': '-sSetRSAKeyClient', 'user': user, 'keyRSA': keyRSA}
+        if clientID is None:
+            broadcastMessage(sendData, clientID, nameRoom)
+        else:
+            sendOneClientMessage(sendData, clientID)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None

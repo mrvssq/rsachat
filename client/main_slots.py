@@ -17,6 +17,8 @@ class MainWindowSlots(Ui_MainWindow):
     tryCount = 0
     ID = None
 
+    publicKeysClients = {}
+
     tempPublicKey = None
     tempPrivateKey = None
 
@@ -179,7 +181,6 @@ class MainWindowSlots(Ui_MainWindow):
             self.server.close()
             if not self.workThreadClient.wait(1):
                 self.workThreadClient.terminate()
-                print('workThreadClient.terminate()')
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
         self.refreshFormForNoConnect()
@@ -233,10 +234,10 @@ class MainWindowSlots(Ui_MainWindow):
     def sendKeyRoom(self, data):
         nameRoom = data['room']
         keyAES = data['keyAES']
-        dictKeysRSA = data['dictKeysRSA']
-        for usr in dictKeysRSA.keys():
+        users = data['users']
+        for usr in users:
             if int(usr) != self.ID:
-                encryptKey = self.cryptTextForRSA(keyAES, dictKeysRSA[usr], splitOn=False)
+                encryptKey = self.cryptTextForRSA(keyAES, self.publicKeysClients[usr], splitOn=False)
                 dataToSend = {'command': '-sSetKeyAES',
                               'id': usr,
                               'encryptKeysAES': encryptKey.hex(),
@@ -250,15 +251,23 @@ class MainWindowSlots(Ui_MainWindow):
             clientID = data['clientID']
             nameRoom = data['nameRoom']
             toolTip = data['toolTip']
-            if toolTip == 'request':
-                self.acceptRequestInRoom(clientID, nameRoom, data['keyClient'])
-            elif toolTip == 'user':
-                dataToSend = {'command': '-sKickUser',
-                              'kick_id': clientID,
+            if clientID in self.publicKeysClients.keys():
+                keyRSA = self.publicKeysClients[clientID]
+                if toolTip == 'request':
+                    self.acceptRequestInRoom(clientID, nameRoom, keyRSA)
+                elif toolTip == 'user':
+                    dataToSend = {'command': '-sKickUser',
+                                  'kick_id': clientID,
+                                  'room': nameRoom}
+                    self.sendToServer(dataToSend)
+                else:
+                    errorMsg = 'toolTip is :' + str(toolTip)
+                    self.writeInGlobalWindow('red', errorMsg, 'ERROR', None, 0)
+            else:
+                dataToSend = {'command': '-sGetRSAKeyClient',
+                              'user': clientID,
                               'room': nameRoom}
                 self.sendToServer(dataToSend)
-            else:
-                print('toolTip is :' + toolTip)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None
@@ -419,6 +428,8 @@ class MainWindowSlots(Ui_MainWindow):
                 self.acceptMessage(data)
             elif command == '-sSetKeyAES':
                 self.setKeyAES(data)
+            elif command == '-sSetRSAKeyClient':
+                self.setRSAKeyClient(data)
             elif command == '-sError':
                 self.errorCommand(data)
             else:
@@ -498,7 +509,7 @@ class MainWindowSlots(Ui_MainWindow):
             nameRoom = data['room']
             index = self.stackWidgetDict[nameRoom]
             self.stackedWidgetChats.widget(index).refreshOnlineListinTab(
-                str(data['admin']), data['users'], data['requests'])
+                data['admin'], data['users'], data['requests'])
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None
@@ -537,6 +548,15 @@ class MainWindowSlots(Ui_MainWindow):
             self.stackedWidgetChats.widget(index).setKeyRoomAES(keyAES)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
+        return None
+
+    def setRSAKeyClient(self, data):
+        try:
+            user = data['user']
+            keyRSA = data['keyRSA']
+            self.publicKeysClients[user] = keyRSA
+        except Exception as errorTry:
+            self.excaptionWrite(errorTry)
         return None
 
     def errorCommand(self, data):
