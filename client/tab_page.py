@@ -25,6 +25,7 @@ class TabPage(QtWidgets.QWidget):
         self.tempKeyAES = None
         self.encryptionType = encryptionType
         self.clients = []
+        self.requests = []
 
         self.WidgetChat = QWidget(self)
         self.resizeEvent = self.resizeEventGridLayout
@@ -95,8 +96,8 @@ class TabPage(QtWidgets.QWidget):
 
     def buttonSaveKeysAES(self):
         if self.tempKeyAES is not None:
-            self.keyRoomAES.append(self.tempKeyAES)
             if self.activateState == 3:
+                self.keyRoomAES.append(self.tempKeyAES)
                 dataSend = {'keyAES': self.tempKeyAES.hex(),
                             'room': self.nameRoom,
                             'users': self.clients}
@@ -142,7 +143,8 @@ class TabPage(QtWidgets.QWidget):
             self.uiChat.pushButtonExitRoom.setText('Exit Room')
             self.uiSettings.textEditKeyRoomAES.setText('')
             self.uiSettings.textEditPublicKeysClients.setText('')
-            self.clients = []
+            self.clients.clear()
+            self.requests.clear()
         elif code == 1:
             self.uiChat.indicatorLabel.setText("request")
             self.uiChat.indicatorLabel.setStyleSheet("color: rgb(255, 255, 255);"
@@ -154,7 +156,8 @@ class TabPage(QtWidgets.QWidget):
             self.uiChat.pushButtonExitRoom.setText('Cancel')
             self.uiSettings.textEditKeyRoomAES.setText('')
             self.uiSettings.textEditPublicKeysClients.setText('')
-            self.clients = []
+            self.clients.clear()
+            self.requests.clear()
         elif code == 2:
             self.uiChat.indicatorLabel.setText("user")
             self.uiChat.indicatorLabel.setStyleSheet("color: rgb(255, 255, 255);"
@@ -247,6 +250,7 @@ class TabPage(QtWidgets.QWidget):
             self.uiChat.listWidgetOnline.clear()
             self.uiSettings.textEditPublicKeysClients.clear()
             self.clients.clear()
+            self.requests.clear()
             if admin in users:
                 users.remove(admin)
                 itemWidget = QtWidgets.QListWidgetItem(str(admin))
@@ -254,21 +258,18 @@ class TabPage(QtWidgets.QWidget):
                 itemWidget.setToolTip("admin")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.clients.append(admin)
-                #self.writeInClientKeysRSA(admin, adminKey, 'red')
             for item in users:
                 itemWidget = QtWidgets.QListWidgetItem(str(item))
                 itemWidget.setBackground(QColor(142, 255, 203))
                 itemWidget.setToolTip("user")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.clients.append(item)
-                #self.writeInClientKeysRSA(item, key, 'green')
             for item in requests:
                 itemWidget = QtWidgets.QListWidgetItem(str(item))
                 itemWidget.setBackground(QColor(214, 142, 255))
                 itemWidget.setToolTip("request")
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
-                self.clients.append(item)
-                #self.writeInClientKeysRSA(item, key, 'purple')
+                self.requests.append(item)
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
         return None

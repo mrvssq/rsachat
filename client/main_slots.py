@@ -14,10 +14,9 @@ class MainWindowSlots(Ui_MainWindow):
     myKeysRSA = {'publicKey': None, 'privateKey': None}
     serverKey = None
     stackWidgetDict = {}
+    publicKeysClients = {}
     tryCount = 0
     ID = None
-
-    publicKeysClients = {}
 
     tempPublicKey = None
     tempPrivateKey = None
@@ -264,12 +263,16 @@ class MainWindowSlots(Ui_MainWindow):
                     errorMsg = 'toolTip is :' + str(toolTip)
                     self.writeInGlobalWindow('red', errorMsg, 'ERROR', None, 0)
             else:
-                dataToSend = {'command': '-sGetRSAKeyClient',
-                              'user': clientID,
-                              'room': nameRoom}
-                self.sendToServer(dataToSend)
+                self.getRSAKeyClient(clientID)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
+        return None
+
+    def getRSAKeyClient(self, clientID, nameRoom=None):
+        dataToSend = {'command': '-sGetRSAKeyClient',
+                      'user': clientID,
+                      'room': nameRoom}
+        self.sendToServer(dataToSend)
         return None
 
     def acceptRequestInRoom(self, clientID, nameRoom, publicKeyClient):
@@ -507,9 +510,31 @@ class MainWindowSlots(Ui_MainWindow):
         nameRoom = None
         try:
             nameRoom = data['room']
+            admin = data['admin']
+            users = data['users']
+            requests = data['requests']
             index = self.stackWidgetDict[nameRoom]
+
             self.stackedWidgetChats.widget(index).refreshOnlineListinTab(
-                data['admin'], data['users'], data['requests'])
+                admin, users, requests)
+            if admin is not None:
+                if admin in self.publicKeysClients.keys():
+                    self.stackedWidgetChats.widget(index).writeInClientKeysRSA(
+                        admin, self.publicKeysClients[admin], 'red')
+                else:
+                    self.getRSAKeyClient(admin)
+            for usr in users:
+                if usr in self.publicKeysClients.keys():
+                    self.stackedWidgetChats.widget(index).writeInClientKeysRSA(
+                        usr, self.publicKeysClients[usr], 'green')
+                else:
+                    self.getRSAKeyClient(usr)
+            for req in requests:
+                if req in self.publicKeysClients.keys():
+                    self.stackedWidgetChats.widget(index).writeInClientKeysRSA(
+                        req, self.publicKeysClients[req], 'purple')
+                else:
+                    self.getRSAKeyClient(req)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
         return None
