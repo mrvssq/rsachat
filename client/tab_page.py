@@ -347,6 +347,7 @@ class TabPage(QtWidgets.QWidget):
         if self.keyRoomAES[-1] is not None and self.keyRoomAES[-1] != key:
             self.writeNotif('Room key AES256 changed', 'SERVER')
         self.keyRoomAES.append(key)
+        self.uiSettings.textEditKeyRoomAES.setText(key.hex())
         return None
 
     def getKeyRoomAES(self):
