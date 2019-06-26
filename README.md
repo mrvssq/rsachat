@@ -4,9 +4,7 @@ RSA Chat Python (client/server) Чат на стадии доработки
 Для запуска требуется:
 1. Python3x
 2. Установка PyQt5 и PyCryptodome в pip:
-В консоли Windows/Linux:
-pip3 install pyqt5
-pip3 install pycryptodome
+В консоли Windows/Linux: "pip3 install pyqt5" и "pip3 install pycryptodome"
 
 Форма написана на PyQT5
 
