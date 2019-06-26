@@ -59,7 +59,7 @@ class MainWindow(MainWindowSlots):
 
     def createWidgetGenRandomSlots(self):
         self.uiGenRandom.setupUi(self.widgetGenRandom)
-        self.widgetGenRandom.mouseReleaseEvent = self.genRSA
+        self.widgetGenRandom.mouseReleaseEvent = self.eventGenRSA
         self.widgetGenRandom.hide()
         self.widgetGenRandom.setGeometry(QRect(40, 10, 250, 130))
         self.widgetGenRandom.setMinimumSize(250, 130)

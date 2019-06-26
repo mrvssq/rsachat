@@ -210,7 +210,7 @@ class TabPage(QtWidgets.QWidget):
     def sentMsgToServer(self, textMSG):
         import textwrap
         import time
-        lengthMSG = 2000
+        lengthMSG = 500
         try:
             blocksMSG = textwrap.wrap(textMSG, lengthMSG)
             for message in blocksMSG:

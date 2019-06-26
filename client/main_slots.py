@@ -28,11 +28,10 @@ class MainWindowSlots(Ui_MainWindow):
     def showWidgetMyKeys(self):
         self.myKeysForm.show()
 
-        if self.myKeysRSA['publicKey'] is not None\
-            and self.myKeysRSA['privateKey'] is not None\
-                and self.serverKey is not None:
+        if self.myKeysRSA['publicKey'] is not None and self.myKeysRSA['privateKey'] is not None:
             self.uiMyKeys.textEditMyPublicKeyRSA.setText(str(self.myKeysRSA['publicKey'].decode('utf-8')))
             self.uiMyKeys.textEditMyPrivatKeyRSA.setText(str(self.myKeysRSA['privateKey'].decode('utf-8')))
+        if self.serverKey is not None:
             self.uiMyKeys.textEditPublicKeyServer.setText(str(self.serverKey))
         return None
 
@@ -68,27 +67,31 @@ class MainWindowSlots(Ui_MainWindow):
         self.widgetGenRandom.hide()
         return None
 
-    def genRSA(self, event=None):
+    def eventGenRSA(self, event):
+        if event is None:
+            return None
         try:
-            bit = int(self.uiMyKeys.comboBoxBitRSA.currentText())
             result = self.uiGenRandom.calculateRandomPointsArt()
-            randomBytes = self.uiGenRandom.randomGeneratorPointsArt(16)
-            self.uiGenRandom.setRandomPointsArt(randomBytes)
-            privateKey = RSA.generate(bit, self.uiGenRandom.randomGeneratorPointsArt)
-            publicKey = privateKey.publickey()
-            if event is None:
-                self.myKeysRSA['publicKey'] = publicKey.exportKey()
-                self.myKeysRSA['privateKey'] = privateKey.exportKey()
-                return None
-            elif result:
-                self.tempPublicKey = publicKey.exportKey()
-                self.tempPrivateKey = privateKey.exportKey()
+            if result:
+                self.tempPrivateKey, self.tempPublicKey = self.getNewKeysRSA()
                 self.uiMyKeys.textEditMyPublicKeyRSA.setText(str(self.tempPublicKey.decode('utf-8')))
                 self.uiMyKeys.textEditMyPrivatKeyRSA.setText(str(self.tempPrivateKey.decode('utf-8')))
                 self.widgetGenRandom.hide()
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
         return None
+
+    def getNewKeysRSA(self):
+        try:
+            bit = int(self.uiMyKeys.comboBoxBitRSA.currentText())
+            randomBytes = self.uiGenRandom.randomGeneratorPointsArt(16)
+            self.uiGenRandom.setRandomPointsArt(randomBytes)
+            privateKey = RSA.generate(bit, self.uiGenRandom.randomGeneratorPointsArt)
+            publicKey = privateKey.publickey()
+            return privateKey.exportKey(), publicKey.exportKey()
+        except Exception as errorTry:
+            self.excaptionWrite(errorTry)
+        return None, None
 
     def selectionChangedWidgetRooms(self):
         nameRoom = None
@@ -150,7 +153,8 @@ class MainWindowSlots(Ui_MainWindow):
         return nick
 
     def firstConnect(self, host='127.0.0.1', portStr='8000'):
-        self.genRSA()
+        self.myKeysRSA['privateKey'], self.myKeysRSA['publicKey'] = self.getNewKeysRSA()
+
         nickname = self.lineEditNickName.text()
         dataToSend = {'command': '-sFirstConnect', 'nickname': nickname,
                       'publicKey': self.myKeysRSA['publicKey'].decode('utf-8')}
@@ -396,7 +400,7 @@ class MainWindowSlots(Ui_MainWindow):
                 time.sleep(0.01)
                 self.server.send(packet)
             else:
-                errorMsg = 'send_to_server. error: len command have big size'
+                errorMsg = 'sendToServer. error: len command have big size'
                 self.writeInGlobalWindow('red', errorMsg, 'ERROR', None, 0)
                 return False
         except Exception as errorTry:
