@@ -6,8 +6,8 @@ from PyQt5.QtCore import pyqtSignal, QRect
 from PyQt5.QtGui import QTextCursor, QColor
 from PyQt5.QtWidgets import QDialog, QWidget
 from Crypto.Cipher import AES
-from Crypto import Random
-import base64
+import datetime
+import json
 
 
 class TabPage(QtWidgets.QWidget):
@@ -102,7 +102,7 @@ class TabPage(QtWidgets.QWidget):
                             'room': self.nameRoom,
                             'users': self.clients}
                 self.SendKeyRoom.emit(dataSend)
-                self.writeNotif('Room key AES256 changed', 'SERVER')
+                self.writeNotice('Room key AES256 changed', 'SERVER')
             self.tempKeyAES = None
         self.SettingsDlg.hide()
 
@@ -121,7 +121,7 @@ class TabPage(QtWidgets.QWidget):
                     self.uiSettings.textEditKeyRoomAES.setText(keyAES256.hex())
                     self.widgetGenRandom.hide()
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def resizeEventGridLayout(self, event):
@@ -204,12 +204,12 @@ class TabPage(QtWidgets.QWidget):
             else:
                 self.keyPressEventOldMessage(event)
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def sentMsgToServer(self, textMSG):
-        import time
         import textwrap
+        import time
         lengthMSG = 2000
         try:
             blocksMSG = textwrap.wrap(textMSG, lengthMSG)
@@ -222,7 +222,7 @@ class TabPage(QtWidgets.QWidget):
                 self.SendMsg.emit(msgDict)
             self.uiChat.lineEditSendMsg.setPlainText('')
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def doubleClickedWidgetOnline(self):
@@ -232,10 +232,11 @@ class TabPage(QtWidgets.QWidget):
             if toolTip != 'admin' and self.activateState == 3:
                 sendDict = {'nameRoom': self.nameRoom,
                             'clientID': int(clientID),
-                            'toolTip': toolTip}
+                            'toolTip': toolTip,
+                            'keyRoom': self.keyRoomAES[-1].hex()}
                 self.WidgetOnline.emit(sendDict)
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def writeInClientKeysRSA(self, clientID, publicKeyClient, color):
@@ -271,12 +272,11 @@ class TabPage(QtWidgets.QWidget):
                 self.uiChat.listWidgetOnline.addItem(itemWidget)
                 self.requests.append(item)
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def writeMSG(self, message, prefix, encrypt):
         try:
-            import datetime
             timeChat = datetime.datetime.today().strftime("%H:%M:%S")
             timeChat = '<font color=\"black\">[' + timeChat + ']</font>'
             if encrypt:
@@ -285,19 +285,18 @@ class TabPage(QtWidgets.QWidget):
                                timeChat + prefix + ": " + message + "</font><br>"
             self.writeTextInWindowChat(textToWindowChat)
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
-    def writeNotif(self, message, prefix):
+    def writeNotice(self, message, prefix):
         try:
-            import datetime
             timeChat = datetime.datetime.today().strftime("%H:%M:%S")
             timeChat = '<font color=\"black\">[' + timeChat + ']</font>'
             textToWindowChat = "<font color=\"purple\">" + \
                                timeChat + prefix + ": " + message + "</font><br>"
             self.writeTextInWindowChat(textToWindowChat)
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
+            self.exceptionWrite(errorTry)
         return None
 
     def writeTextInWindowChat(self, text):
@@ -314,46 +313,49 @@ class TabPage(QtWidgets.QWidget):
             if key256 is None:
                 return message
             else:
-                BS = 16
-                message = message + (BS - len(message) % BS) * chr(BS - len(message) % BS)
-                iv = Random.new().read(AES.block_size)
-                cipher = AES.new(key256, AES.MODE_CFB, iv)
-                enc = base64.b64encode(iv + cipher.encrypt(message)).decode('utf-8')
-                return enc
+                cipher = AES.new(key256, AES.MODE_EAX)
+                cipherText, tag = cipher.encrypt_and_digest(message.encode('utf-8'))
+                enc = [cipherText.hex(), cipher.nonce.hex(), tag.hex()]
+                jsonDumps = json.dumps(enc)
+                return jsonDumps
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
-            return 'error ' + message
+            self.exceptionWrite(errorTry)
+            return None
 
-    def decryptTextFromAES(self, message):
+    def decryptTextFromAES(self, jsonDumps):
         try:
             key256 = self.keyRoomAES[-1]
             if key256 is None:
-                return message
+                message = jsonDumps
             else:
-                BS = 16
-                enc = base64.b64decode(message)
-                iv = enc[:BS]
-                cipher = AES.new(key256, AES.MODE_CFB, iv)
-                s = cipher.decrypt(enc[AES.block_size:]).decode('utf-8')
-                return s[0:-ord(s[-1])]
+                data = json.loads(jsonDumps)
+
+                cipherText = bytes.fromhex(data[0])
+                nonce = bytes.fromhex(data[1])
+                tag = bytes.fromhex(data[2])
+
+                cipher = AES.new(key256, AES.MODE_EAX, nonce)
+                message = cipher.decrypt_and_verify(cipherText, tag).decode('utf-8')
+            return message
         except Exception as errorTry:
-            self.excaptionWrite(errorTry)
-            return 'error ' + message
+            self.exceptionWrite(errorTry)
+            return None
 
     def getActivateCodeRoom(self):
         return self.activateState
 
     def setKeyRoomAES(self, key):
-        if self.keyRoomAES[-1] is not None and self.keyRoomAES[-1] != key:
-            self.writeNotif('Room key AES256 changed', 'SERVER')
-        self.keyRoomAES.append(key)
-        self.uiSettings.textEditKeyRoomAES.setText(key.hex())
+        keyBytes = bytes.fromhex(key)
+        if self.keyRoomAES[-1] is not None and self.keyRoomAES[-1] != keyBytes:
+            self.writeNotice('Room key AES256 changed', 'SERVER')
+        self.keyRoomAES.append(keyBytes)
+        self.uiSettings.textEditKeyRoomAES.setText(key)
         return None
 
     def getKeyRoomAES(self):
-        return self.keyRoomAES[-1]
+        return self.keyRoomAES[-1].hex()
 
-    def excaptionWrite(self, errorTry):
+    def exceptionWrite(self, errorTry):
         import inspect
         nameFun = inspect.stack()[1][3]
         errorMsg = 'nameFun: ' + str(nameFun) + '. TRY: ' + str(errorTry)

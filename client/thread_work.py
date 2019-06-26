@@ -1,5 +1,6 @@
 from PyQt5.QtCore import pyqtSignal, QThread
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP, AES
 import json
 
 
@@ -9,19 +10,21 @@ class WorkThread(QThread):
     def __init__(self, server, key):
         super().__init__()
         self.server = server
-        keyBytes = bytes(key, "utf8")
-        self.key = RSA.importKey(keyBytes)
+        self.key = key
+        privateKey = RSA.importKey(key)
+        self.myCipherRSA = PKCS1_OAEP.new(privateKey)
 
     def run(self):
         while True:
             try:
                 messageJson = self.server.recv(4096)
                 if messageJson:
-                    commands = messageJson[7:-5].split(b'}end}{begin{')
-                    for command in commands:
-                        commandRight = self.comandsHandlerServer(command)
-                        if commandRight is not None:
-                            self.replyServer.emit(commandRight)
+                    packets = messageJson[7:-5].split(b'[end][begin]')
+                    for pack in packets:
+                        encPack = json.loads(pack.decode('utf-8'))
+                        data = self.decodePacket(encPack)
+                        if data is not None:
+                            self.replyServer.emit(data)
                 else:
                     errorMsg = 'Error Disconnect server'
                     self.disconnectEvent(errorMsg)
@@ -32,15 +35,18 @@ class WorkThread(QThread):
         print('exit cycle "while" / disconnect server')
         return None
 
-    def comandsHandlerServer(self, command):
+    def decodePacket(self, encPack):
         try:
-            if command:
-                commandWithJson = b''
-                blocks = command[11:-11].split(b'--[SPLIT]--')
-                for block in blocks:
-                    commandWithJson += self.key.decrypt(block)
-                commandRight = json.loads(commandWithJson.decode('utf-8'))
-                return commandRight
+            encSessionKey = bytes.fromhex(encPack[0])
+            nonce = bytes.fromhex(encPack[1])
+            cipherText = bytes.fromhex(encPack[2])
+            tag = bytes.fromhex(encPack[3])
+
+            sessionKey = self.myCipherRSA.decrypt(encSessionKey)
+            cipherAES = AES.new(sessionKey, AES.MODE_EAX, nonce)
+            dataDump = cipherAES.decrypt_and_verify(cipherText, tag)
+            data = json.loads(dataDump.decode('utf-8'))
+            return data
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
             return None

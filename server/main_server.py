@@ -1,4 +1,6 @@
 from threading import Thread
+from Crypto.Cipher import PKCS1_OAEP, AES
+from Crypto.Random import get_random_bytes
 from Crypto.PublicKey import RSA
 from Crypto import Random
 from Crypto.Random import random
@@ -129,17 +131,19 @@ class WorkThreadClients(Thread):
         Thread.__init__(self)
         self.id = clientID
         self.socketClient = socketClient
-        self.privateKey = RSA.importKey(globalPrivate)
+        self.serverCipherRSA = PKCS1_OAEP.new(RSA.importKey(globalPrivate))
 
     def run(self):
         while self.id in dictClients.keys():
             try:
                 dataJson = self.socketClient.recv(4096)
                 if dataJson:
-                    commands = dataJson[7:-5].split(b'}end}{begin{')
-                    for command in commands:
-                        commandRight = self.commandHandler(command)
-                        comandsHandlerServer(commandRight, self.id)
+                    packets = dataJson[7:-5].split(b'[end][begin]')
+                    for pak in packets:
+                        pak = json.loads(pak.decode('utf-8'))
+                        data = self.decodePacket(pak)
+                        if data is not None:
+                            comandsHandlerServer(data, self.id)
                 else:
                     removeSocketCompletely(self.id)
             except Exception as error:
@@ -148,40 +152,42 @@ class WorkThreadClients(Thread):
         print('cycle "while" finished for client: ' + str(self.id))
         return None
 
-    def commandHandler(self, command):
+    def decodePacket(self, pak):
         try:
-            if command:
-                commandWithJson = b''
-                blocks = command[11:-11].split(b'--[SPLIT]--')
-                for block in blocks:
-                    commandWithJson += self.privateKey.decrypt(block)
-                commandRight = json.loads(commandWithJson.decode('utf-8'))
-                return commandRight
+            encSessionKey = bytes.fromhex(pak[0])
+            nonce = bytes.fromhex(pak[1])
+            cipherText = bytes.fromhex(pak[2])
+            tag = bytes.fromhex(pak[3])
+
+            sessionKey = self.serverCipherRSA.decrypt(encSessionKey)
+            cipherAES = AES.new(sessionKey, AES.MODE_EAX, nonce)
+            dataDump = cipherAES.decrypt_and_verify(cipherText, tag)
+            data = json.loads(dataDump.decode('utf-8'))
+            return data
         except Exception as error:
             excaptionWrite(error, self.id)
-            removeSocketCompletely(self.id)
-            return {'room': None, 'error': 'commandHandler'}
+            return None
 
 
-def cryptoRSA(messageJson, clientID):
+def cryptoRSA(text, key):
     try:
-        keyBytes = bytes(dictClients[clientID]['Public_Key'], "utf8")
-        key = RSA.importKey(keyBytes)
-        sendMsg = b'{begin{--[SPLIT]--'
-        if len(messageJson) > 250:
-            i = 0
-            while len(messageJson) > 250:
-                enterMSG = messageJson[:250]
-                messageSend = key.encrypt(bytes(enterMSG, "utf8"), randomGenerator)
-                sendMsg += messageSend[0] + b'--[SPLIT]--'
-                messageJson = messageJson[250:]
-                i += 1
-        messageSend = key.encrypt(bytes(messageJson, "utf8"), randomGenerator)
-        sendMsg += messageSend[0] + b'--[SPLIT]--}end}'
-        return sendMsg
+        publicKeyRSA = RSA.importKey(bytes(key, "utf8"))
+        cipherRSA = PKCS1_OAEP.new(publicKeyRSA)
+
+        sessionKey = get_random_bytes(16)
+        encSessionKey = cipherRSA.encrypt(sessionKey)
+
+        cipherAES = AES.new(sessionKey, AES.MODE_EAX)
+        cipherText, tag = cipherAES.encrypt_and_digest(text.encode('utf-8'))
+
+        packet = [encSessionKey.hex(),
+                  cipherAES.nonce.hex(),
+                  cipherText.hex(),
+                  tag.hex()]
+        return packet
     except Exception as error:
-        excaptionWrite(error, clientID)
-        return 'error cryptoRSA'
+        excaptionWrite(error, 0)
+        return None
 
 
 def sendOneClientMessage(message, clientID):
@@ -189,10 +195,12 @@ def sendOneClientMessage(message, clientID):
     try:
         if dictClients[clientID]['socket'] is not None:
             messageJson = json.dumps(message)
-            sendMsg = cryptoRSA(messageJson, clientID)
-            if len(sendMsg) <= 4096:
-                dictClients[clientID]['socket'].send(sendMsg)
+            packet = cryptoRSA(messageJson, dictClients[clientID]['Public_Key'])
+            packetStr = json.dumps(packet).encode('utf-8')
+            packetStr = b'[begin]' + packetStr + b'[end]'
+            if len(packetStr) < 4096:
                 time.sleep(0.01)
+                dictClients[clientID]['socket'].send(packetStr)
             else:
                 print('len command have big size')
     except Exception as error:
@@ -373,7 +381,7 @@ def resolutionAdminRoom(data, clientID):
                     dictRooms[nameRoom]['requests'].remove(approvedID)
                     dictRooms[nameRoom]['users'].append(approvedID)
                     welcome = 'Welcome to the room'
-                    setRoomRight(approvedID, nameRoom, 2, 'green', welcome, data['cryptPrivatkey'])
+                    setRoomRight(approvedID, nameRoom, 2, 'green', welcome, data['CryptPrivatKeyRoom'])
                     refreshClients(nameRoom)
                     print('--end_go_in_room-- id: ' + str(approvedID))
                 else:

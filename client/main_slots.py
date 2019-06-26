@@ -4,12 +4,14 @@ from tab_page import TabPage
 from PyQt5.QtWidgets import QWidget, QInputDialog, QDesktopWidget, QListWidgetItem
 from PyQt5.QtGui import QColor, QTextCursor
 from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP, AES
 from Crypto.Random import random
 import socket
 import json
 
 
 class MainWindowSlots(Ui_MainWindow):
+    numerator = 0
     server = None
     serverKey = None
     tempPublicKey = None
@@ -70,7 +72,7 @@ class MainWindowSlots(Ui_MainWindow):
         try:
             bit = int(self.uiMyKeys.comboBoxBitRSA.currentText())
             result = self.uiGenRandom.calculateRandomPointsArt()
-            randomBytes = self.uiGenRandom.randomGeneratorPointsArt(10)
+            randomBytes = self.uiGenRandom.randomGeneratorPointsArt(16)
             self.uiGenRandom.setRandomPointsArt(randomBytes)
             privateKey = RSA.generate(bit, self.uiGenRandom.randomGeneratorPointsArt)
             publicKey = privateKey.publickey()
@@ -155,7 +157,8 @@ class MainWindowSlots(Ui_MainWindow):
         try:
             port = int(portStr)
             self.server.connect((host, port))
-            self.workThreadClient = WorkThread(self.server, self.myKeysRSA['privateKey'].decode('utf-8'))
+            self.workThreadClient = WorkThread(self.server, self.myKeysRSA['privateKey'])
+
             self.workThreadClient.replyServer.connect(self.comandsHandler)
             self.workThreadClient.start()
             self.writeInGlobalWindow('green', str(dataToSend), 'CLIENT', None, 1)
@@ -246,10 +249,10 @@ class MainWindowSlots(Ui_MainWindow):
         users = data['users']
         for usr in users:
             if int(usr) != self.ID:
-                encryptKey = self.cryptTextForRSA(keyAES, self.publicKeysClients[usr], splitOn=False)
+                encryptKey = self.encryptDataRSA(keyAES, self.publicKeysClients[usr])
                 dataToSend = {'command': '-sSetKeyAES',
                               'id': usr,
-                              'encryptKeysAES': encryptKey.hex(),
+                              'encryptKeysAES': encryptKey,
                               'room': nameRoom}
                 self.sendToServer(dataToSend)
         return None
@@ -263,7 +266,8 @@ class MainWindowSlots(Ui_MainWindow):
             if clientID in self.publicKeysClients.keys():
                 keyRSA = self.publicKeysClients[clientID]
                 if toolTip == 'request':
-                    self.acceptRequestInRoom(clientID, nameRoom, keyRSA)
+                    keyRoom = data['keyRoom']
+                    self.acceptRequestInRoom(clientID, nameRoom, keyRSA, keyRoom)
                 elif toolTip == 'user':
                     dataToSend = {'command': '-sKickUser',
                                   'kick_id': clientID,
@@ -285,15 +289,12 @@ class MainWindowSlots(Ui_MainWindow):
         self.sendToServer(dataToSend)
         return None
 
-    def acceptRequestInRoom(self, clientID, nameRoom, publicKeyClient):
+    def acceptRequestInRoom(self, clientID, nameRoom, publicKeyClient, keyRoom):
         try:
-            pubKeyBytesRSA = bytes(str(publicKeyClient), "utf8")
-            rightKeyPublicClient = RSA.importKey(pubKeyBytesRSA)
-            index = self.stackWidgetDict[nameRoom]
-            roomKey = self.stackedWidgetChats.widget(index).getKeyRoomAES()
-            cryptAES256 = rightKeyPublicClient.encrypt(roomKey, self.uiGenRandom.randomGeneratorPointsArt)
-            dataToSend = {'command': '-sResolutionAdmin', 'response': 1, 'id': clientID, 'room': nameRoom,
-                          'cryptPrivatkey': str(cryptAES256[0].hex())}
+            cryptKeyAES = self.encryptDataRSA(keyRoom, publicKeyClient)
+            dataToSend = {'command': '-sResolutionAdmin', 'response': 1,
+                          'id': clientID, 'room': nameRoom,
+                          'CryptPrivatKeyRoom': cryptKeyAES}
             self.sendToServer(dataToSend)
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
@@ -343,43 +344,57 @@ class MainWindowSlots(Ui_MainWindow):
             self.excaptionWrite(errorTry, nameRoom)
         return None
 
-    def cryptTextForRSA(self, messageJson, keyText, splitOn=True):
-        if splitOn:
-            begin = b'{begin{--[SPLIT]--'
-            split = b'--[SPLIT]--'
-            end = b'--[SPLIT]--}end}'
-        else:
-            begin = b''
-            split = b''
-            end = b''
+    def encryptDataRSA(self, text, key):
         try:
-            keyBytesRSA = bytes(keyText, "utf8")
-            key = RSA.importKey(keyBytesRSA)
-            sendMSG = begin
-            if len(messageJson) > 250:
-                i = 0
-                while len(messageJson) > 250:
-                    enterMSG = messageJson[:250]
-                    message = key.encrypt(bytes(enterMSG, "utf8"), self.uiGenRandom.randomGeneratorPointsArt)
-                    sendMSG += message[0] + split
-                    messageJson = messageJson[250:]
-                    i += 1
-            message = key.encrypt(bytes(messageJson, "utf8"), self.uiGenRandom.randomGeneratorPointsArt)
-            sendMSG += message[0] + end
-            return sendMSG
+            publicKey = RSA.importKey(bytes(key, "utf8"))
+            cipherRSA = PKCS1_OAEP.new(publicKey)
+
+            sessionKey = self.uiGenRandom.randomGeneratorPointsArt(16)
+            encSessionKey = cipherRSA.encrypt(sessionKey)
+
+            cipherAES = AES.new(sessionKey, AES.MODE_EAX)
+            cipherText, tag = cipherAES.encrypt_and_digest(text.encode('utf-8'))
+
+            packet = [encSessionKey.hex(),
+                      cipherAES.nonce.hex(),
+                      cipherText.hex(),
+                      tag.hex()]
+            packetDumps = json.dumps(packet)
+            return packetDumps
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
-            return 'error cryptoForServerRSA'
+            return None
+
+    def decryptDataRSA(self, encryptData, key=None):
+        try:
+            if key is None:
+                key = self.myKeysRSA['privateKey']
+            encryptList = json.loads(encryptData)
+
+            encSessionKey = bytes.fromhex(encryptList[0])
+            nonce = bytes.fromhex(encryptList[1])
+            cipherText = bytes.fromhex(encryptList[2])
+            tag = bytes.fromhex(encryptList[3])
+
+            myCipherRSA = PKCS1_OAEP.new(RSA.importKey(key))
+            sessionKey = myCipherRSA.decrypt(encSessionKey)
+            cipherAES = AES.new(sessionKey, AES.MODE_EAX, nonce)
+            dataDump = cipherAES.decrypt_and_verify(cipherText, tag)
+            return dataDump.decode('utf-8')
+        except Exception as errorTry:
+            self.excaptionWrite(errorTry)
+            return None
 
     def sendToServer(self, message):
         import time
         try:
             self.writeInGlobalWindow('green', str(message), 'CLIENT', None, 1)
             messageJson = json.dumps(message)
-            sendMSG = self.cryptTextForRSA(messageJson, self.serverKey, splitOn=True)
-            if len(sendMSG) < 4096:
+            packet = self.encryptDataRSA(messageJson, self.serverKey)
+            packet = b'[begin]' + packet.encode('utf-8') + b'[end]'
+            if len(packet) < 4096:
                 time.sleep(0.01)
-                self.server.send(sendMSG)
+                self.server.send(packet)
             else:
                 errorMsg = 'send_to_server. error: len command have big size'
                 self.writeInGlobalWindow('red', errorMsg, 'ERROR', None, 0)
@@ -387,6 +402,7 @@ class MainWindowSlots(Ui_MainWindow):
         except Exception as errorTry:
             self.excaptionWrite(errorTry)
             return False
+        return True
 
     def writeInGlobalWindow(self, color, text, prefix, nameRoom, address):
         import datetime
@@ -510,9 +526,8 @@ class MainWindowSlots(Ui_MainWindow):
             #   if roomRight == 0:
             #   elif roomRight == 1:
             if roomRight == 2 and data['CryptPrivatKeyRoom'] is not None:
-                cryptPrivateKeyRoom = bytes.fromhex(data['CryptPrivatKeyRoom'])
-                privateKey = RSA.importKey(self.myKeysRSA['privateKey'])
-                privateKeyRoom = privateKey.decrypt(cryptPrivateKeyRoom)
+                cryptPrivateKeyRoom = data['CryptPrivatKeyRoom']
+                privateKeyRoom = self.decryptDataRSA(cryptPrivateKeyRoom)
                 self.stackedWidgetChats.widget(index).setKeyRoomAES(privateKeyRoom)
             #   elif roomRight == 3:
             self.writeInGlobalWindow(color, msgView, 'SERVER', nameRoom, nameRoom)
@@ -587,10 +602,8 @@ class MainWindowSlots(Ui_MainWindow):
         nameRoom = None
         try:
             nameRoom = data['room']
-            encryptKeysAES = bytes.fromhex(data['encryptKeysAES'])
-            key = RSA.importKey(self.myKeysRSA['privateKey'])
-            bytesKeyAES = key.decrypt(encryptKeysAES).decode('utf-8')
-            keyAES = bytes.fromhex(bytesKeyAES)
+            encryptKeysAES = data['encryptKeysAES']
+            keyAES = self.decryptDataRSA(encryptKeysAES)
             index = self.stackWidgetDict[nameRoom]
             self.stackedWidgetChats.widget(index).setKeyRoomAES(keyAES)
         except Exception as errorTry:
