@@ -553,9 +553,9 @@ if __name__ == '__main__':
     globalPublic = publicKey.exportKey().decode('utf-8')
     globalPrivate = bytes(privateKey.exportKey())
 
-    dictRooms['BigSizeRoom'] = {'admin': None, 'users': [], 'requests': []}
-    for usrFake in range(80):
-        MainBegin('fake')
+    #   dictRooms['BigSizeRoom'] = {'admin': None, 'users': [], 'requests': []}
+    #   for usrFake in range(80):
+    #       MainBegin('fake')
 
     while True:
         connSocket, addr = server.accept()
