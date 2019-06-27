@@ -212,12 +212,16 @@ class TabPage(QtWidgets.QWidget):
         import time
         lengthMSG = 500
         try:
+            if self.keyRoomAES[-1] is None:
+                encrypt = False
+            else:
+                encrypt = True
             blocksMSG = textwrap.wrap(textMSG, lengthMSG)
             for message in blocksMSG:
                 if len(blocksMSG) >= 3:
                     time.sleep(1)
                 encryptMsg = self.encryptTextToAES(message)
-                msgDict = {'nameRoom': self.nameRoom, 'textMSG': encryptMsg}
+                msgDict = {'nameRoom': self.nameRoom, 'textMSG': encryptMsg, 'encrypt': encrypt}
                 self.writeMSG(message, "<font color=\"blue\">You</font>", False)
                 self.SendMsg.emit(msgDict)
             self.uiChat.lineEditSendMsg.setPlainText('')

@@ -342,7 +342,9 @@ class MainWindowSlots(Ui_MainWindow):
         try:
             nameRoom = data['nameRoom']
             message = data['textMSG']
-            dataToSend = {'command': '-sMsg', 'message': message, 'room': nameRoom}
+            encrypt = data['encrypt']
+            dataToSend = {'command': '-sMsg', 'message': message,
+                          'room': nameRoom, 'encrypt': encrypt}
             self.sendToServer(dataToSend)
         except Exception as errorTry:
             self.excaptionWrite(errorTry, nameRoom)
@@ -395,10 +397,9 @@ class MainWindowSlots(Ui_MainWindow):
             self.writeInGlobalWindow('green', str(message), 'CLIENT', None, 1)
             messageJson = json.dumps(message)
             packet = self.encryptDataRSA(messageJson, self.serverKey)
-            packet = b'[begin]' + packet.encode('utf-8') + b'[end]'
             if len(packet) < 4096:
                 time.sleep(0.01)
-                self.server.send(packet)
+                self.server.send(packet.encode('utf-8') + b'+')
             else:
                 errorMsg = 'sendToServer. error: len command have big size'
                 self.writeInGlobalWindow('red', errorMsg, 'ERROR', None, 0)

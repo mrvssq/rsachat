@@ -120,7 +120,8 @@ class MainBegin:
                     refreshClients(globalRoom)
                     dictClients[self.id]['Thread'] = WorkThreadClients(self.id, dictClients[self.id]['socket'])
                     dictClients[self.id]['Thread'].start()
-                    print('new client :' + str(self.id) + ' connect to server in room: root')
+                    writeInConsole('open connection', 'new client :'
+                                   + str(self.id) + ' connect to server in room: root')
         except Exception as error:
             excaptionWrite(error, self.id)
             removeSocketCompletely(self.id)
@@ -134,22 +135,33 @@ class WorkThreadClients(Thread):
         self.serverCipherRSA = PKCS1_OAEP.new(RSA.importKey(globalPrivate))
 
     def run(self):
+        stackPackets = b''
         while self.id in dictClients.keys():
+            packNow = None
             try:
                 dataJson = self.socketClient.recv(4096)
                 if dataJson:
-                    packets = dataJson[7:-5].split(b'[end][begin]')
-                    for pak in packets:
-                        pak = json.loads(pak.decode('utf-8'))
-                        data = self.decodePacket(pak)
-                        if data is not None:
-                            comandsHandlerServer(data, self.id)
+                    stackPackets += dataJson
+                    if stackPackets.decode('utf-8')[0] == '[':
+                        if stackPackets.decode('utf-8')[-1] == '+':
+                            packetsList = stackPackets.split(b'+')
+                            for pack in packetsList:
+                                if pack != b'':
+                                    packNow = pack
+                                    encPack = json.loads(pack.decode('utf-8'))
+                                    data = self.decodePacket(encPack)
+                                    if data is not None:
+                                        comandsHandlerServer(data, self.id)
+                            stackPackets = b''
                 else:
                     removeSocketCompletely(self.id)
+            except json.decoder.JSONDecodeError as error:
+                writeInConsole('bad packet', str(packNow))
+                excaptionWrite(error, self.id)
             except Exception as error:
                 excaptionWrite(error, self.id)
                 removeSocketCompletely(self.id)
-        print('cycle "while" finished for client: ' + str(self.id))
+        writeInConsole('connection closed', 'cycle "while" finished for client: ' + str(self.id))
         return None
 
     def decodePacket(self, pak):
@@ -184,7 +196,8 @@ def cryptoRSA(text, key):
                   cipherAES.nonce.hex(),
                   cipherText.hex(),
                   tag.hex()]
-        return packet
+        packetDumps = json.dumps(packet)
+        return packetDumps
     except Exception as error:
         excaptionWrite(error, 0)
         return None
@@ -196,13 +209,11 @@ def sendOneClientMessage(message, clientID):
         if dictClients[clientID]['socket'] is not None:
             messageJson = json.dumps(message)
             packet = cryptoRSA(messageJson, dictClients[clientID]['Public_Key'])
-            packetStr = json.dumps(packet).encode('utf-8')
-            packetStr = b'[begin]' + packetStr + b'[end]'
-            if len(packetStr) < 4096:
+            if len(packet) < 4096:
                 time.sleep(0.01)
-                dictClients[clientID]['socket'].send(packetStr)
+                dictClients[clientID]['socket'].send(packet.encode('utf-8') + b'+')
             else:
-                print('len command have big size')
+                writeInConsole('error', 'Len command have BIG size, idClient: ' + str(clientID))
     except Exception as error:
         excaptionWrite(error, clientID)
         removeSocketCompletely(clientID)
@@ -248,7 +259,7 @@ def comandsHandlerServer(data, clientID):
     try:
         nameRoom = data['room']
         command = data['command']
-        print('\t' + str(clientID) + ' sent command: ' + command)
+        writeInConsole('\t' + str(clientID) + ' sent command', command)
 
         if command == '-sMsg':
             processingMessage(data, clientID)
@@ -280,11 +291,15 @@ def processingMessage(data, clientID):
     try:
         nameRoom = data['room']
         message = data['message']
+        encrypt = data['encrypt']
         nick = dictClients[clientID]['nickname']
         if clientID in dictRooms[nameRoom]['users']:
             sendData = {'command': '-sMsg', 'message': message, 'id': str(clientID), 'nickname': nick, 'room': nameRoom}
             broadcastMessage(sendData, clientID, nameRoom)
-            print(nameRoom + '/' + str(clientID) + ': ' + message)
+            if encrypt:
+                writeInConsole(nameRoom + '/' + str(clientID), '***encrypt message***')
+            else:
+                writeInConsole(nameRoom + '/' + str(clientID), message)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
@@ -357,13 +372,14 @@ def requestGenerationRoom(data, clientID):
                         welcome = 'Welcome to the room'
                         right = 2
                     setRoomRight(clientID, nameRoom, right, 'green', welcome)
+                    writeInConsole(str(clientID), 'Confirmed! Entered the room ' + nameRoom)
                 else:
-                    print('--begin_go_in_room-- id: ' + str(clientID))
+                    writeInConsole(str(clientID), 'Sent a request to enter the room ' + nameRoom)
                     dictRooms[nameRoom]['requests'].append(clientID)
                 refreshClients(nameRoom)
         else:
             writeInLogClient('error. Room does not exist', clientID, 'red', nameRoom)
-            print('-sGo: error Room does not exist')
+            writeInConsole('error', 'Room ' + nameRoom + ' does not exist')
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
         removeSocketCompletely(clientID)
@@ -383,13 +399,13 @@ def resolutionAdminRoom(data, clientID):
                     welcome = 'Welcome to the room'
                     setRoomRight(approvedID, nameRoom, 2, 'green', welcome, data['CryptPrivatKeyRoom'])
                     refreshClients(nameRoom)
-                    print('--end_go_in_room-- id: ' + str(approvedID))
+                    writeInConsole(str(approvedID), 'Confirmed! Entered the room ' + nameRoom)
                 else:
-                    print('user ' + str(approvedID) + ' not in server')
+                    writeInConsole('error', 'user ' + str(approvedID) + ' not in server')
             else:
-                print('error! Admin tell "NO"!')
+                writeInConsole('error', 'Admin tell "NO"!')
         else:
-            print('error! ' + str(clientID) + ' not Admin!')
+            writeInConsole('error', str(clientID) + ' not Admin!')
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
@@ -401,13 +417,12 @@ def exitRoom(nameRoom, clientID):
             removeUserFromRoom(nameRoom, clientID)
             welcome = 'You left the room'
             setRoomRight(clientID, nameRoom, 0, 'purple', welcome)
-            print(str(clientID) + ': -sExit room ' + nameRoom)
         elif clientID in dictRooms[nameRoom]['requests']:
             dictRooms[nameRoom]['requests'].remove(clientID)
             welcome = 'You canceled request'
             setRoomRight(clientID, nameRoom, 0, 'purple', welcome)
             refreshClients(nameRoom)
-            print(str(clientID) + ': -sExit room ' + nameRoom)
+        writeInConsole(str(clientID), '-sExit room ' + nameRoom)
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
@@ -443,10 +458,10 @@ def createNewRoom(data, clientID):
             sendOneClientMessage(sendData, clientID)
             refreshRooms()
             refreshClients(nameRoom, clientID)
-            print(str(clientID) + ' create new room: ' + nameRoom)
+            writeInConsole(str(clientID), 'create new room: ' + nameRoom)
         else:
             writeInLogClient(validName['msg'], clientID, 'purple', nameRoom)
-            print(str(clientID) + ': -sNewRoom error: ' + validName['msg'])
+            writeInConsole(str(clientID), '-sNewRoom error: ' + validName['msg'])
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
@@ -464,7 +479,7 @@ def kickUserOutRoom(data, clientID):
             welcome = 'You kicked out of the room'
             setRoomRight(kickId, nameRoom, 0, 'red', welcome)
             refreshClients(nameRoom)
-            print(str(clientID) + ': -sKickUser. kick user:' + str(kickId))
+            writeInConsole(str(clientID), '-sKickUser. kick user:' + str(kickId))
     except Exception as error:
         excaptionWrite(error, clientID, nameRoom)
     return None
@@ -520,9 +535,15 @@ def cleanAllRoomClient(clientID):
 def excaptionWrite(errorTry, ClientID, nameRoom=None):
     import inspect
     nameFun = inspect.stack()[1][3]
-    print('ERROR try in ' + str(nameFun) + 'c[' + str(ClientID) +
-          '], r[' + str(nameRoom) + ']: ' + str(errorTry))
+    prefix = 'Try'
+    text = 'name Function: ' + str(nameFun) + ', c[' + str(ClientID) +\
+           '], r[' + str(nameRoom) + ']: ' + str(errorTry)
+    writeInConsole(prefix, text)
     return None
+
+
+def writeInConsole(prefix, text):
+    print(prefix + ': ' + text)
 
 
 if __name__ == '__main__':
@@ -532,9 +553,9 @@ if __name__ == '__main__':
     globalPublic = publicKey.exportKey().decode('utf-8')
     globalPrivate = bytes(privateKey.exportKey())
 
-    #   dictRooms['BigSizeRoom'] = {'admin': None, 'users': [], 'requests': []}
-    #   for usrFake in range(80):
-    #       MainBegin('fake')
+    dictRooms['BigSizeRoom'] = {'admin': None, 'users': [], 'requests': []}
+    for usrFake in range(80):
+        MainBegin('fake')
 
     while True:
         connSocket, addr = server.accept()

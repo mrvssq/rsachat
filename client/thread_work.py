@@ -14,21 +14,36 @@ class WorkThread(QThread):
         privateKey = RSA.importKey(key)
         self.myCipherRSA = PKCS1_OAEP.new(privateKey)
 
+    @property
     def run(self):
+        stackPackets = b''
         while True:
+            packNow = None
             try:
-                messageJson = self.server.recv(4096)
-                if messageJson:
-                    packets = messageJson[7:-5].split(b'[end][begin]')
-                    for pack in packets:
-                        encPack = json.loads(pack.decode('utf-8'))
-                        data = self.decodePacket(encPack)
-                        if data is not None:
-                            self.replyServer.emit(data)
+                dataJson = self.server.recv(4096)
+                if dataJson:
+                    stackPackets += dataJson
+                    if stackPackets.decode('utf-8')[0] == '[':
+                        if stackPackets.decode('utf-8')[-1] == '+':
+                            packetsList = stackPackets.split(b'+')
+                            for pack in packetsList:
+                                if pack != b'':
+                                    packNow = pack
+                                    encPack = json.loads(pack.decode('utf-8'))
+                                    data = self.decodePacket(encPack)
+                                    if data is not None:
+                                        self.replyServer.emit(data)
+                            stackPackets = b''
+                    else:
+                        stackPackets = b''
+                        print('bad packet: ' + str(packNow))
                 else:
                     errorMsg = 'Error Disconnect server'
                     self.disconnectEvent(errorMsg)
                     break
+            except json.decoder.JSONDecodeError as errorTry:
+                self.excaptionWrite(errorTry)
+                print('bad packet: ' + str(packNow))
             except Exception as errorTry:
                 self.excaptionWrite(errorTry)
                 break
